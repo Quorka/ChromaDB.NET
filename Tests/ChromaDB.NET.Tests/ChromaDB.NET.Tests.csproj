@@ -18,18 +18,15 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ChromaDB.NET.csproj" />
   </ItemGroup>
-  
+
   <Target Name="CopyNativeLibs" AfterTargets="Build">
     <ItemGroup>
       <NativeLibs Include="..\..\src\runtimes\**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(OutDir)\runtimes\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    
+
     <!-- Also copy the library to the output directory directly for Linux -->
-    <Copy Condition="$([MSBuild]::IsOSPlatform('Linux'))"
-          SourceFiles="..\..\src\runtimes\linux-x64\native\libchroma_csharp.so"
-          DestinationFolder="$(OutDir)"
-          SkipUnchangedFiles="true" />
+    <Copy Condition="$([MSBuild]::IsOSPlatform('Linux'))" SourceFiles="..\..\runtimes\linux-x64\native\libchroma_csharp.so" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

@@ -36,48 +36,51 @@ namespace ChromaDB.NET.Tests
         [TestMethod]
         public void CreateDatabase_Success()
         {
+            var databaseName = "test-database-1";
             using var client = new ChromaClient(persistDirectory: _testDir);
-            
+
             // Create a database
-            client.CreateDatabase("test-database");
-            
+            client.CreateDatabase(databaseName);
+
             // If no exception is thrown, the test passes
         }
-        
+
         [TestMethod]
         public void GetDatabaseId_Success()
         {
+            var databaseName = "test-database-2";
             using var client = new ChromaClient(persistDirectory: _testDir);
-            
+
             // Create a database
-            client.CreateDatabase("test-database");
-            
+            client.CreateDatabase(databaseName);
+
             // Get the database ID
-            var id = client.GetDatabaseId("test-database");
-            
+            var id = client.GetDatabaseId(databaseName);
+
             // Verify the ID is not null or empty
             Assert.IsFalse(string.IsNullOrEmpty(id));
         }
-        
+
         [TestMethod]
         public void DeleteDatabase_Success()
         {
+            var databaseName = "test-database-3";
             using var client = new ChromaClient(persistDirectory: _testDir);
-            
+
             // Create a database
-            client.CreateDatabase("test-database");
-            
+            client.CreateDatabase(databaseName);
+
             // Get the database ID to verify it exists
-            var id = client.GetDatabaseId("test-database");
+            var id = client.GetDatabaseId(databaseName);
             Assert.IsFalse(string.IsNullOrEmpty(id));
-            
+
             // Delete the database
-            client.DeleteDatabase("test-database");
-            
+            client.DeleteDatabase(databaseName);
+
             // Try to get the database ID again, should throw an exception
             try
             {
-                var id2 = client.GetDatabaseId("test-database");
+                var id2 = client.GetDatabaseId(databaseName);
                 Assert.Fail("Expected an exception but none was thrown.");
             }
             catch (ChromaException)
@@ -85,37 +88,6 @@ namespace ChromaDB.NET.Tests
                 // Expected exception
             }
         }
-        
-        // Note: We'll use the high-level API for testing database operations
-        // Since the NativeMethods are internal and not accessible from test project
-        [TestMethod]
-        [Ignore("Database specific collection operations not fully supported in the high-level API yet")]
-        public void CreateCollection_InDatabase_Success()
-        {
-            using var client = new ChromaClient(persistDirectory: _testDir);
-            
-            // Create a database
-            client.CreateDatabase("test-database");
-            
-            // Since we can't directly access the internal API, we'll just document
-            // that this test should be implemented when the API supports database-specific
-            // collection operations
-            Assert.Inconclusive("Test requires implementation of database-specific collection operations in the high-level API");
-        }
-        
-        [TestMethod]
-        [Ignore("Database specific collection operations not fully supported in the high-level API yet")]
-        public void GetCollection_FromDatabase_Success()
-        {
-            using var client = new ChromaClient(persistDirectory: _testDir);
-            
-            // Create a database
-            client.CreateDatabase("test-database");
-            
-            // Since we can't directly access the internal API, we'll just document
-            // that this test should be implemented when the API supports database-specific
-            // collection operations
-            Assert.Inconclusive("Test requires implementation of database-specific collection operations in the high-level API");
-        }
+
     }
 }

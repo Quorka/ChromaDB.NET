@@ -74,16 +74,18 @@ namespace ChromaDB.NET.Tests
         }
 
         [TestMethod]
-        [Ignore("Collection creation fails with validation error, needs Rust debuging")]
         public void CreateCollection_Success()
         {
+            // Found issue: In /home/david/VSCode/chroma/rust/types/src/validators.rs
+            // There's a syntax error in the regex: r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1, 510}[a-zA-Z0-9]$"
+            // Should be: r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,510}[a-zA-Z0-9]$" (no space in the quantifier)
+
             using var client = new ChromaClient(persistDirectory: _testDir);
             using var collection = client.CreateCollection("test-collection", _embeddingFunction);
             Assert.IsNotNull(collection);
         }
 
         [TestMethod]
-        [Ignore("Collection creation fails with validation error, needs Rust debuging")]
         public void AddDocuments_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
@@ -106,13 +108,12 @@ namespace ChromaDB.NET.Tests
             };
 
             collection.Add(documents);
-            
+
             // The test passes if no exception is thrown
             Assert.IsTrue(true);
         }
 
         [TestMethod]
-        [Ignore("Collection creation fails with validation error, needs Rust debuging")]
         public void Query_ReturnsResults()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
@@ -152,7 +153,6 @@ namespace ChromaDB.NET.Tests
         }
 
         [TestMethod]
-        [Ignore("Collection creation fails with validation error, needs Rust debuging")]
         public void Query_WithFilter_ReturnsFilteredResults()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);

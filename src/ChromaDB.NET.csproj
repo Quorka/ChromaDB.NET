@@ -16,10 +16,10 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
-    
+
     <!-- Include native libraries -->
-    <Content Include="runtimes\linux-x64\native\libchroma_csharp.so">
-      <PackagePath>runtimes\linux-x64\native</PackagePath>
+    <Content Include="..\runtimes\linux-x64\native\libchroma_csharp.so">
+      <PackagePath>..\runtimes\linux-x64\native</PackagePath>
       <Pack>true</Pack>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
