@@ -251,16 +251,72 @@ namespace ChromaDB.NET.Tests
             var results3 = collection.Where(filter3);
             Assert.AreEqual(2, results3.Count);
             Assert.IsTrue(results3.Ids.Contains("doc1") && results3.Ids.Contains("doc3"));
+        }
+        [TestMethod]
+        public void WhereFilter_IntegrationTest_CombinedFilter()
+        {
+            using var client = new ChromaClient(persistDirectory: _testDir);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
+            // Add test documents
+            collection.Add("doc1", "Book 1", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["year"] = 2015,
+                ["price"] = 25.0
+            });
+
+            collection.Add("doc2", "Book 2", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["year"] = 2018,
+                ["price"] = 35.0
+            });
+
+            collection.Add("doc3", "Magazine 1", new Dictionary<string, object>
+            {
+                ["category"] = "magazines",
+                ["year"] = 2020,
+                ["price"] = 15.0
+            });
             // Test combined filters
-            //var filter4 = new WhereFilter()
-            //    .Equals("category", "books")
-            //    .GreaterThan("year", 2015)
-            //    .LessThan("price", 40.0);
-            //var results4 = collection.Where(filter4);
-            //Assert.AreEqual(1, results4.Count);
-            //Assert.AreEqual("doc2", results4.Ids[0]);
+            var filter4 = new WhereFilter()
+            .Equals("category", "books")
+            .GreaterThan("year", 2015)
+            .LessThan("price", 40.0);
 
+            var results4 = collection.Where(filter4);
+            Assert.AreEqual(1, results4.Count);
+            Assert.AreEqual("doc2", results4.Ids[0]);
+        }
+
+        [TestMethod]
+        public void WhereFilter_IntegrationTest_FiltersInOperator()
+        {
+            using var client = new ChromaClient(persistDirectory: _testDir);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
+
+            // Add test documents
+            collection.Add("doc1", "Book 1", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["year"] = 2015,
+                ["price"] = 25.0
+            });
+
+            collection.Add("doc2", "Book 2", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["year"] = 2018,
+                ["price"] = 35.0
+            });
+
+            collection.Add("doc3", "Magazine 1", new Dictionary<string, object>
+            {
+                ["category"] = "magazines",
+                ["year"] = 2020,
+                ["price"] = 15.0
+            });
             // Test In operator
             var filter5 = new WhereFilter().In("category", new[] { "books", "newspapers" });
             var results5 = collection.Where(filter5);

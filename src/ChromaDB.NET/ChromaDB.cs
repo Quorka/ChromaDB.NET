@@ -17,6 +17,12 @@ namespace ChromaDB.NET
         private readonly ChromaClient _client;
         private readonly IEmbeddingFunction _embeddingFunction;
 
+        private static readonly JsonSerializerOptions WhereFilterSerializerOptions = new JsonSerializerOptions
+        {
+            Converters = { new WhereFilterConverter() }
+            // Add other options like PropertyNamingPolicy if needed
+        };
+
         internal Collection(ChromaClient client, IntPtr handle, IEmbeddingFunction embeddingFunction)
         {
             _client = client;
@@ -79,7 +85,7 @@ namespace ChromaDB.NET
 
             // Marshal metadata
             var metadataJsons = docs.Select(d => d.Metadata != null
-                ? JsonSerializer.Serialize(d.Metadata)
+                ? MetadataConverter.SerializeMetadata(d.Metadata)
                 : null).ToArray();
             var metadataPtr = MarshalStringArray(metadataJsons);
 
@@ -131,7 +137,7 @@ namespace ChromaDB.NET
             bool includeDocuments = true,
             bool includeDistances = true)
         {
-            var whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter) : null;
+            var whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter, WhereFilterSerializerOptions) : null;
 
             var embeddingPtr = Marshal.AllocHGlobal(queryEmbedding.Length * sizeof(float));
             Marshal.Copy(queryEmbedding, 0, embeddingPtr, queryEmbedding.Length);
@@ -249,7 +255,7 @@ namespace ChromaDB.NET
 
             // Marshal metadata
             var metadataJsons = docs.Select(d => d.Metadata != null
-                ? JsonSerializer.Serialize(d.Metadata)
+                ? MetadataConverter.SerializeMetadata(d.Metadata)
                 : null).ToArray();
             var metadataPtr = MarshalStringArray(metadataJsons);
 
@@ -321,7 +327,7 @@ namespace ChromaDB.NET
 
             // Marshal metadata
             var metadataJsons = docs.Select(d => d.Metadata != null
-                ? JsonSerializer.Serialize(d.Metadata)
+                ? MetadataConverter.SerializeMetadata(d.Metadata)
                 : null).ToArray();
             var metadataPtr = MarshalStringArray(metadataJsons);
 
@@ -383,7 +389,7 @@ namespace ChromaDB.NET
             }
 
             // Convert whereFilter to JSON
-            string whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter) : null;
+            string whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter, WhereFilterSerializerOptions) : null;
 
             try
             {
@@ -444,7 +450,7 @@ namespace ChromaDB.NET
             }
 
             // Convert whereFilter to JSON
-            string whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter) : null;
+            string whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter, WhereFilterSerializerOptions) : null;
 
             try
             {
