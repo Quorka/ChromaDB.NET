@@ -285,9 +285,25 @@ namespace ChromaDB.NET.Tests
             .GreaterThan("year", 2015)
             .LessThan("price", 40.0);
 
-            var results4 = collection.Where(filter4);
-            Assert.AreEqual(1, results4.Count);
-            Assert.AreEqual("doc2", results4.Ids[0]);
+            // Debug - print the generated JSON
+            var json = JsonSerializer.Serialize(filter4);
+            Console.WriteLine($"AND filter JSON: {json}");
+
+            try
+            {
+                var results4 = collection.Where(filter4);
+                Assert.AreEqual(1, results4.Count);
+                Assert.AreEqual("doc2", results4.Ids[0]);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"AND filter error: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                }
+                throw;
+            }
         }
 
         [TestMethod]
@@ -322,6 +338,194 @@ namespace ChromaDB.NET.Tests
             var results5 = collection.Where(filter5);
             Assert.AreEqual(2, results5.Count);
             Assert.IsTrue(results5.Ids.Contains("doc1") && results5.Ids.Contains("doc2"));
+        }
+
+        [TestMethod]
+        public void WhereFilter_ChainedOperations_WithAnd_GeneratesCorrectJson()
+        {
+            var filter = new WhereFilter()
+                .Equals("category", "books")
+                .GreaterThan("year", 2010)
+                .LessThan("price", 30.0);
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(filter);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify that multiple conditions are wrapped with $and
+            Assert.IsTrue(root.TryGetProperty("$and", out var andArray));
+            Assert.AreEqual(JsonValueKind.Array, andArray.ValueKind);
+            Assert.AreEqual(3, andArray.GetArrayLength());
+
+            // Check that each condition is correctly represented
+            var conditions = andArray.EnumerateArray().ToArray();
+
+            // Check first condition: {"category":"books"}
+            Assert.IsTrue(conditions[0].TryGetProperty("category", out var categoryValue));
+            Assert.AreEqual("books", categoryValue.GetString());
+
+            // Check second condition: {"year":{"$gt":2010}}
+            Assert.IsTrue(conditions[1].TryGetProperty("year", out var yearValue));
+            Assert.IsTrue(yearValue.TryGetProperty("$gt", out var gtValue));
+            Assert.AreEqual(2010, gtValue.GetInt32());
+
+            // Check third condition: {"price":{"$lt":30.0}}
+            Assert.IsTrue(conditions[2].TryGetProperty("price", out var priceValue));
+            Assert.IsTrue(priceValue.TryGetProperty("$lt", out var ltValue));
+            Assert.AreEqual(30.0, ltValue.GetDouble());
+        }
+
+        [TestMethod]
+        public void WhereFilter_ChainedOperations_WithOr_GeneratesCorrectJson()
+        {
+            var filter = new WhereFilter()
+                .Equals("category", "books")
+                .GreaterThan("year", 2010)
+                .Or(); // Use OR instead of the default AND
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(filter);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify that multiple conditions are wrapped with $or
+            Assert.IsTrue(root.TryGetProperty("$or", out var orArray));
+            Assert.AreEqual(JsonValueKind.Array, orArray.ValueKind);
+            Assert.AreEqual(2, orArray.GetArrayLength());
+
+            // Check that each condition is correctly represented
+            var conditions = orArray.EnumerateArray().ToArray();
+
+            // Check first condition: {"category":"books"}
+            Assert.IsTrue(conditions[0].TryGetProperty("category", out var categoryValue));
+            Assert.AreEqual("books", categoryValue.GetString());
+
+            // Check second condition: {"year":{"$gt":2010}}
+            Assert.IsTrue(conditions[1].TryGetProperty("year", out var yearValue));
+            Assert.IsTrue(yearValue.TryGetProperty("$gt", out var gtValue));
+            Assert.AreEqual(2010, gtValue.GetInt32());
+        }
+
+        [TestMethod]
+        public void WhereFilter_SingleCondition_NoLogicalOperator()
+        {
+            var filter = new WhereFilter()
+                .Equals("category", "books");
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(filter);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify that single conditions are not wrapped with $and or $or
+            Assert.IsFalse(root.TryGetProperty("$and", out _));
+            Assert.IsFalse(root.TryGetProperty("$or", out _));
+            Assert.IsTrue(root.TryGetProperty("category", out var categoryValue));
+            Assert.AreEqual("books", categoryValue.GetString());
+        }
+
+        [TestMethod]
+        public void WhereFilter_ExplicitAnd_GeneratesCorrectJson()
+        {
+            var filter1 = new WhereFilter().Equals("category", "books");
+            var filter2 = new WhereFilter().GreaterThan("year", 2010);
+
+            var combined = new WhereFilter().And(filter1, filter2);
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(combined);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify the structure with $and
+            Assert.IsTrue(root.TryGetProperty("$and", out var andArray));
+            Assert.AreEqual(JsonValueKind.Array, andArray.ValueKind);
+            Assert.AreEqual(2, andArray.GetArrayLength());
+        }
+
+        [TestMethod]
+        public void WhereFilter_ExplicitOr_GeneratesCorrectJson()
+        {
+            var filter1 = new WhereFilter().Equals("category", "books");
+            var filter2 = new WhereFilter().GreaterThan("year", 2010);
+
+            var combined = new WhereFilter().Or(filter1, filter2);
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(combined);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify the structure with $or
+            Assert.IsTrue(root.TryGetProperty("$or", out var orArray));
+            Assert.AreEqual(JsonValueKind.Array, orArray.ValueKind);
+            Assert.AreEqual(2, orArray.GetArrayLength());
+        }
+
+        [TestMethod]
+        public void WhereFilter_IntegrationTest_OrFilter()
+        {
+            using var client = new ChromaClient(persistDirectory: _testDir);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
+
+            // Add test documents
+            collection.Add("doc1", "Book 1", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["year"] = 2015,
+                ["price"] = 25.0
+            });
+
+            collection.Add("doc2", "Book 2", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["year"] = 2018,
+                ["price"] = 35.0
+            });
+
+            collection.Add("doc3", "Magazine 1", new Dictionary<string, object>
+            {
+                ["category"] = "magazines",
+                ["year"] = 2020,
+                ["price"] = 15.0
+            });
+
+            // Test OR filter - should match items where category is "magazines" OR price is less than 20.0
+            var orFilter = new WhereFilter()
+                .Equals("category", "magazines")
+                .LessThan("price", 20.0)
+                .Or();
+
+            // Debug - print the generated JSON
+            var json = JsonSerializer.Serialize(orFilter);
+            Console.WriteLine($"OR filter JSON: {json}");
+
+            try
+            {
+                var orResults = collection.Where(orFilter);
+                Assert.AreEqual(1, orResults.Count);
+                Assert.AreEqual("doc3", orResults.Ids[0]);  // Only doc3 matches either condition
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"OR filter error: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                }
+                throw;
+            }
         }
     }
 }

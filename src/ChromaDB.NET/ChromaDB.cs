@@ -515,12 +515,42 @@ namespace ChromaDB.NET
         /// <returns>Query results</returns>
         public QueryResult Where(WhereFilter filter, uint limit = 0, uint offset = 0, bool includeEmbeddings = false)
         {
-            return Get(
-                whereFilter: filter.ToDictionary(),
-                limit: limit,
-                offset: offset,
-                includeEmbeddings: includeEmbeddings
-            );
+            // Instead of directly using ToDictionary, serialize the filter using the custom converter
+            string whereFilterJson = JsonSerializer.Serialize(filter, WhereFilterSerializerOptions);
+
+            try
+            {
+                var result = NativeMethods.chroma_get(
+                    _client.Handle,
+                    _handle,
+                    IntPtr.Zero, // No specific IDs
+                    UIntPtr.Zero,
+                    whereFilterJson,
+                    null, // No document filter
+                    limit,
+                    offset,
+                    includeEmbeddings,
+                    true, // Include metadatas
+                    true, // Include documents
+                    out var queryResultPtr,
+                    out var errorPtr);
+
+                ChromaClient.CheckError(result, errorPtr);
+
+                try
+                {
+                    return MarshalQueryResult(queryResultPtr);
+                }
+                finally
+                {
+                    NativeMethods.chroma_free_query_result(queryResultPtr);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in Where filter: {ex.Message}");
+                throw;
+            }
         }
 
         /// <summary>

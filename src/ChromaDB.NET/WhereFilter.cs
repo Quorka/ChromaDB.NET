@@ -3,20 +3,39 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ChromaDB.NET;
 
 /// <summary>
 /// A builder class for filters in ChromaDB
 /// </summary>
+[JsonConverter(typeof(WhereFilterConverter))]
 public class WhereFilter
 {
     private readonly Dictionary<string, object> _filter = new Dictionary<string, object>();
+    private bool _combineWithOr = false; // Flag to indicate OR combination
+
+    // Internal accessor for the converter
+    internal bool CombineWithOr => _combineWithOr;
+    internal IReadOnlyDictionary<string, object> FilterDictionary => _filter;
 
     /// <summary>
     /// Creates a new filter
     /// </summary>
     public WhereFilter() { }
+
+    /// <summary>
+    /// Specifies that the conditions added to this filter instance should be combined using OR logic.
+    /// If not called, conditions are combined using AND logic (default).
+    /// Note: This applies only when multiple conditions are added directly to this WhereFilter instance.
+    /// </summary>
+    /// <returns>The current WhereFilter instance for chaining.</returns>
+    public WhereFilter Or()
+    {
+        _combineWithOr = true;
+        return this;
+    }
 
     /// <summary>
     /// Adds an equals condition to the filter
@@ -38,9 +57,15 @@ public class WhereFilter
     /// <returns>This filter instance for chaining</returns>
     public WhereFilter In(string field, IEnumerable<object> values)
     {
+        // Ensure values is materialized if it's a deferred execution LINQ query
+        var valueList = values.ToList();
+        if (!valueList.Any())
+        {
+            throw new ArgumentException("IN operator requires a non-empty list of values.", nameof(values));
+        }
         _filter[field] = new Dictionary<string, object>
         {
-            ["$in"] = values.ToList()
+            ["$in"] = valueList
         };
         return this;
     }
@@ -53,9 +78,15 @@ public class WhereFilter
     /// <returns>This filter instance for chaining</returns>
     public WhereFilter NotIn(string field, IEnumerable<object> values)
     {
+        // Ensure values is materialized if it's a deferred execution LINQ query
+        var valueList = values.ToList();
+        if (!valueList.Any())
+        {
+            throw new ArgumentException("NIN operator requires a non-empty list of values.", nameof(values));
+        }
         _filter[field] = new Dictionary<string, object>
         {
-            ["$nin"] = values.ToList()
+            ["$nin"] = valueList
         };
         return this;
     }
@@ -117,6 +148,28 @@ public class WhereFilter
         {
             ["$lte"] = value
         };
+        return this;
+    }
+
+    /// <summary>
+    /// Explicitly combines multiple filters with an AND operator
+    /// </summary>
+    /// <param name="filters">The filters to combine</param>
+    /// <returns>A new filter representing the AND combination</returns>
+    public WhereFilter And(params WhereFilter[] filters)
+    {
+        _filter["$and"] = filters.Select(f => f.ToDictionary()).ToList();
+        return this;
+    }
+
+    /// <summary>
+    /// Explicitly combines multiple filters with an OR operator
+    /// </summary>
+    /// <param name="filters">The filters to combine</param>
+    /// <returns>A new filter representing the OR combination</returns>
+    public WhereFilter Or(params WhereFilter[] filters)
+    {
+        _filter["$or"] = filters.Select(f => f.ToDictionary()).ToList();
         return this;
     }
 
