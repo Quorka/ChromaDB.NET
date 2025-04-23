@@ -19,6 +19,7 @@ use chroma_types::{
     CollectionConfiguration, CreateCollectionRequest, CreateDatabaseRequest, 
     DeleteDatabaseRequest, GetCollectionRequest, GetDatabaseRequest, IncludeList,
     InternalCollectionConfiguration, KnnIndex, Metadata, QueryRequest, RawWhereFields,
+    UpdateMetadata,
 };
 use libc::{c_char, c_float, c_int, c_uint, size_t};
 use std::ffi::{CStr, CString};
@@ -438,14 +439,20 @@ pub extern "C" fn chroma_create_database(
     
     let request = match CreateDatabaseRequest::try_new(tenant, name) {
         Ok(req) => req,
-        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+        Err(e) => {
+            eprintln!("CreateDatabaseRequest validation error: {:?}", e);
+            return ChromaErrorCode::ValidationError as c_int;
+        },
     };
 
     let mut frontend = client.frontend.clone();
     
     match client.runtime.block_on(async { frontend.create_database(request).await }) {
         Ok(_) => ChromaErrorCode::Success as c_int,
-        Err(_) => ChromaErrorCode::InternalError as c_int,
+        Err(e) => {
+            eprintln!("Create database error: {:?}", e);
+            ChromaErrorCode::InternalError as c_int
+        },
     }
 }
 
@@ -634,7 +641,10 @@ pub extern "C" fn chroma_create_collection(
                 client.frontend.get_default_knn_index(),
             ) {
                 Ok(config) => Some(config),
-                Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                Err(e) => {
+                    eprintln!("Collection configuration validation error: {:?}", e);
+                    return ChromaErrorCode::ValidationError as c_int;
+                },
             }
         },
         None => None,
@@ -649,7 +659,10 @@ pub extern "C" fn chroma_create_collection(
         get_or_create,
     ) {
         Ok(req) => req,
-        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+        Err(e) => {
+            eprintln!("CreateCollectionRequest validation error: {:?}", e);
+            return ChromaErrorCode::ValidationError as c_int;
+        },
     };
 
     let mut frontend = client.frontend.clone();
@@ -668,7 +681,10 @@ pub extern "C" fn chroma_create_collection(
             
             ChromaErrorCode::Success as c_int
         },
-        Err(_) => ChromaErrorCode::InternalError as c_int,
+        Err(e) => {
+            eprintln!("Create collection frontend error: {:?}", e);
+            ChromaErrorCode::InternalError as c_int
+        },
     }
 }
 
@@ -889,6 +905,594 @@ pub extern "C" fn chroma_add(
 
 /// Queries a collection for similar documents
 #[no_mangle]
+pub extern "C" fn chroma_count(
+    client_handle: *mut ChromaClient,
+    collection_handle: *const ChromaCollection,
+    result: *mut c_uint,
+) -> c_int {
+    if client_handle.is_null() || collection_handle.is_null() || result.is_null() {
+        return ChromaErrorCode::InvalidArgument as c_int;
+    }
+
+    let client = unsafe { &mut *client_handle };
+    let collection = unsafe { &*collection_handle };
+
+    // Parse collection ID
+    let collection_id = match uuid::Uuid::parse_str(&collection.id) {
+        Ok(id) => chroma_types::CollectionUuid(id),
+        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+    };
+
+    // Create count request
+    let request = match chroma_types::CountRequest::try_new(
+        collection.tenant.clone(),
+        collection.database.clone(),
+        collection_id
+    ) {
+        Ok(req) => req,
+        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+    };
+
+    // Execute request
+    let mut frontend = client.frontend.clone();
+    match client.runtime.block_on(async { frontend.count(request).await }) {
+        Ok(count_response) => {
+            unsafe {
+                *result = count_response;
+            }
+            ChromaErrorCode::Success as c_int
+        },
+        Err(e) => {
+            eprintln!("Count error: {:?}", e);
+            ChromaErrorCode::InternalError as c_int
+        },
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn chroma_update(
+    client_handle: *mut ChromaClient,
+    collection_handle: *const ChromaCollection,
+    ids: *const *const c_char,
+    ids_count: size_t,
+    embeddings: *const *const c_float,
+    embedding_dim: size_t,
+    metadatas_json: *const *const c_char,
+    documents: *const *const c_char,
+) -> c_int {
+    if client_handle.is_null() || collection_handle.is_null() || ids.is_null() || ids_count == 0 {
+        return ChromaErrorCode::InvalidArgument as c_int;
+    }
+
+    let client = unsafe { &mut *client_handle };
+    let collection = unsafe { &*collection_handle };
+
+    // Convert C string array to Rust vector
+    let ids_vec = unsafe {
+        match c_array_to_vec_string(ids, ids_count) {
+            Ok(v) => v,
+            Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+        }
+    };
+
+    // Convert C embedding array to Rust vector
+    let embeddings_vec = if !embeddings.is_null() {
+        let mut result = Vec::with_capacity(ids_count);
+        unsafe {
+            for i in 0..ids_count {
+                let embedding_ptr = *embeddings.add(i);
+                if !embedding_ptr.is_null() {
+                    let vec = c_array_to_vec_f32(embedding_ptr, embedding_dim);
+                    result.push(Some(vec));
+                } else {
+                    result.push(None);
+                }
+            }
+        }
+        Some(result)
+    } else {
+        None
+    };
+
+    // Convert metadata JSON strings to Rust vector
+    let metadatas_vec = if !metadatas_json.is_null() {
+        let mut result = Vec::with_capacity(ids_count);
+        unsafe {
+            for i in 0..ids_count {
+                let metadata_ptr = *metadatas_json.add(i);
+                if !metadata_ptr.is_null() {
+                    let metadata_str = match c_str_to_string(metadata_ptr) {
+                        Ok(s) => s,
+                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                    };
+                    
+                    if metadata_str.is_empty() {
+                        result.push(None);
+                    } else {
+                        match serde_json::from_str::<UpdateMetadata>(&metadata_str) {
+                            Ok(metadata) => result.push(Some(metadata)),
+                            Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                        }
+                    }
+                } else {
+                    result.push(None);
+                }
+            }
+        }
+        Some(result)
+    } else {
+        None
+    };
+
+    // Convert document strings to Rust vector
+    let documents_vec = if !documents.is_null() {
+        let mut result = Vec::with_capacity(ids_count);
+        unsafe {
+            for i in 0..ids_count {
+                let document_ptr = *documents.add(i);
+                if !document_ptr.is_null() {
+                    match c_str_to_string(document_ptr) {
+                        Ok(s) => {
+                            if s.is_empty() {
+                                result.push(None);
+                            } else {
+                                result.push(Some(s));
+                            }
+                        },
+                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                    }
+                } else {
+                    result.push(None);
+                }
+            }
+        }
+        Some(result)
+    } else {
+        None
+    };
+
+    // Parse collection ID
+    let collection_id = match uuid::Uuid::parse_str(&collection.id) {
+        Ok(id) => chroma_types::CollectionUuid(id),
+        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+    };
+
+    // Create update request
+    let request = match chroma_types::UpdateCollectionRecordsRequest::try_new(
+        collection.tenant.clone(),
+        collection.database.clone(),
+        collection_id,
+        ids_vec,
+        embeddings_vec,
+        documents_vec,
+        None, // uris
+        metadatas_vec,
+    ) {
+        Ok(req) => req,
+        Err(e) => {
+            eprintln!("Update request validation error: {:?}", e);
+            return ChromaErrorCode::ValidationError as c_int;
+        },
+    };
+
+    // Execute request
+    let mut frontend = client.frontend.clone();
+    match client.runtime.block_on(async { frontend.update(request).await }) {
+        Ok(_) => ChromaErrorCode::Success as c_int,
+        Err(e) => {
+            eprintln!("Update error: {:?}", e);
+            ChromaErrorCode::InternalError as c_int
+        },
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn chroma_upsert(
+    client_handle: *mut ChromaClient,
+    collection_handle: *const ChromaCollection,
+    ids: *const *const c_char,
+    ids_count: size_t,
+    embeddings: *const *const c_float,
+    embedding_dim: size_t,
+    metadatas_json: *const *const c_char,
+    documents: *const *const c_char,
+) -> c_int {
+    if client_handle.is_null() || collection_handle.is_null() || ids.is_null() || ids_count == 0 {
+        return ChromaErrorCode::InvalidArgument as c_int;
+    }
+
+    let client = unsafe { &mut *client_handle };
+    let collection = unsafe { &*collection_handle };
+
+    // Convert C string array to Rust vector
+    let ids_vec = unsafe {
+        match c_array_to_vec_string(ids, ids_count) {
+            Ok(v) => v,
+            Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+        }
+    };
+
+    // Convert C embedding array to Rust vector
+    let embeddings_vec = if !embeddings.is_null() {
+        let mut result = Vec::with_capacity(ids_count);
+        unsafe {
+            for i in 0..ids_count {
+                let embedding_ptr = *embeddings.add(i);
+                if !embedding_ptr.is_null() {
+                    result.push(c_array_to_vec_f32(embedding_ptr, embedding_dim));
+                } else {
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
+            }
+        }
+        Some(result)
+    } else {
+        None
+    };
+
+    // Convert metadata JSON strings to Rust vector
+    let metadatas_vec = if !metadatas_json.is_null() {
+        let mut result = Vec::with_capacity(ids_count);
+        unsafe {
+            for i in 0..ids_count {
+                let metadata_ptr = *metadatas_json.add(i);
+                if !metadata_ptr.is_null() {
+                    let metadata_str = match c_str_to_string(metadata_ptr) {
+                        Ok(s) => s,
+                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                    };
+                    
+                    if metadata_str.is_empty() {
+                        result.push(None);
+                    } else {
+                        match serde_json::from_str::<UpdateMetadata>(&metadata_str) {
+                            Ok(metadata) => result.push(Some(metadata)),
+                            Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                        }
+                    }
+                } else {
+                    result.push(None);
+                }
+            }
+        }
+        Some(result)
+    } else {
+        None
+    };
+
+    // Convert document strings to Rust vector
+    let documents_vec = if !documents.is_null() {
+        let mut result = Vec::with_capacity(ids_count);
+        unsafe {
+            for i in 0..ids_count {
+                let document_ptr = *documents.add(i);
+                if !document_ptr.is_null() {
+                    match c_str_to_string(document_ptr) {
+                        Ok(s) => {
+                            if s.is_empty() {
+                                result.push(None);
+                            } else {
+                                result.push(Some(s));
+                            }
+                        },
+                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                    }
+                } else {
+                    result.push(None);
+                }
+            }
+        }
+        Some(result)
+    } else {
+        None
+    };
+
+    // Parse collection ID
+    let collection_id = match uuid::Uuid::parse_str(&collection.id) {
+        Ok(id) => chroma_types::CollectionUuid(id),
+        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+    };
+
+    // Create upsert request
+    let request = match chroma_types::UpsertCollectionRecordsRequest::try_new(
+        collection.tenant.clone(),
+        collection.database.clone(),
+        collection_id,
+        ids_vec,
+        embeddings_vec,
+        documents_vec,
+        None, // uris
+        metadatas_vec,
+    ) {
+        Ok(req) => req,
+        Err(e) => {
+            eprintln!("Upsert request validation error: {:?}", e);
+            return ChromaErrorCode::ValidationError as c_int;
+        },
+    };
+
+    // Execute request
+    let mut frontend = client.frontend.clone();
+    match client.runtime.block_on(async { frontend.upsert(request).await }) {
+        Ok(_) => ChromaErrorCode::Success as c_int,
+        Err(e) => {
+            eprintln!("Upsert error: {:?}", e);
+            ChromaErrorCode::InternalError as c_int
+        },
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn chroma_delete(
+    client_handle: *mut ChromaClient,
+    collection_handle: *const ChromaCollection,
+    ids: *const *const c_char,
+    ids_count: size_t,
+    where_filter_json: *const c_char,
+    where_document_filter: *const c_char,
+) -> c_int {
+    if client_handle.is_null() || collection_handle.is_null() {
+        return ChromaErrorCode::InvalidArgument as c_int;
+    }
+
+    // If both ids and where filter are null, return an error
+    if ids.is_null() && where_filter_json.is_null() && where_document_filter.is_null() {
+        return ChromaErrorCode::InvalidArgument as c_int;
+    }
+
+    let client = unsafe { &mut *client_handle };
+    let collection = unsafe { &*collection_handle };
+
+    // Convert C string array to Rust vector
+    let ids_vec = if !ids.is_null() && ids_count > 0 {
+        unsafe {
+            match c_array_to_vec_string(ids, ids_count) {
+                Ok(v) => Some(v),
+                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            }
+        }
+    } else {
+        None
+    };
+
+    // Parse where filters
+    let where_filter = unsafe {
+        let where_json_str = if !where_filter_json.is_null() {
+            match c_str_to_string(where_filter_json) {
+                Ok(s) => Some(s),
+                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            }
+        } else {
+            None
+        };
+
+        let where_document = if !where_document_filter.is_null() {
+            match c_str_to_string(where_document_filter) {
+                Ok(s) => Some(s),
+                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            }
+        } else {
+            None
+        };
+
+        if where_json_str.is_none() && where_document.is_none() {
+            None
+        } else {
+            match RawWhereFields::from_json_str(where_json_str.as_deref(), where_document.as_deref()) {
+                Ok(raw) => match raw.parse() {
+                    Ok(parsed) => Some(parsed),
+                    Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                },
+                Err(_) => return ChromaErrorCode::ValidationError as c_int,
+            }
+        }
+    };
+
+    // Parse collection ID
+    let collection_id = match uuid::Uuid::parse_str(&collection.id) {
+        Ok(id) => chroma_types::CollectionUuid(id),
+        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+    };
+
+    // Create delete request
+    let request = match chroma_types::DeleteCollectionRecordsRequest::try_new(
+        collection.tenant.clone(),
+        collection.database.clone(),
+        collection_id,
+        ids_vec,
+        where_filter.flatten(),
+    ) {
+        Ok(req) => req,
+        Err(e) => {
+            eprintln!("Delete request validation error: {:?}", e);
+            return ChromaErrorCode::ValidationError as c_int;
+        },
+    };
+
+    // Execute request
+    let mut frontend = client.frontend.clone();
+    match client.runtime.block_on(async { frontend.delete(request).await }) {
+        Ok(_) => ChromaErrorCode::Success as c_int,
+        Err(_) => ChromaErrorCode::InternalError as c_int,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn chroma_get(
+    client_handle: *mut ChromaClient,
+    collection_handle: *const ChromaCollection,
+    ids: *const *const c_char,
+    ids_count: size_t,
+    where_filter_json: *const c_char,
+    where_document_filter: *const c_char,
+    limit: c_uint,
+    offset: c_uint,
+    include_embeddings: bool,
+    include_metadatas: bool,
+    include_documents: bool,
+    result: *mut *mut ChromaQueryResult,
+) -> c_int {
+    if client_handle.is_null() || collection_handle.is_null() || result.is_null() {
+        return ChromaErrorCode::InvalidArgument as c_int;
+    }
+
+    let client = unsafe { &mut *client_handle };
+    let collection = unsafe { &*collection_handle };
+
+    // Convert C string array to Rust vector
+    let ids_vec = if !ids.is_null() && ids_count > 0 {
+        unsafe {
+            match c_array_to_vec_string(ids, ids_count) {
+                Ok(v) => Some(v),
+                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            }
+        }
+    } else {
+        None
+    };
+
+    // Parse where filters
+    let where_filter = unsafe {
+        let where_json_str = if !where_filter_json.is_null() {
+            match c_str_to_string(where_filter_json) {
+                Ok(s) => Some(s),
+                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            }
+        } else {
+            None
+        };
+
+        let where_document = if !where_document_filter.is_null() {
+            match c_str_to_string(where_document_filter) {
+                Ok(s) => Some(s),
+                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            }
+        } else {
+            None
+        };
+
+        if where_json_str.is_none() && where_document.is_none() {
+            None
+        } else {
+            match RawWhereFields::from_json_str(where_json_str.as_deref(), where_document.as_deref()) {
+                Ok(raw) => match raw.parse() {
+                    Ok(parsed) => Some(parsed),
+                    Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                },
+                Err(_) => return ChromaErrorCode::ValidationError as c_int,
+            }
+        }
+    };
+
+    // Parse collection ID
+    let collection_id = match uuid::Uuid::parse_str(&collection.id) {
+        Ok(id) => chroma_types::CollectionUuid(id),
+        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+    };
+
+    // Build include list
+    let mut include = Vec::new();
+    if include_embeddings {
+        include.push("embeddings".to_string());
+    }
+    if include_metadatas {
+        include.push("metadatas".to_string());
+    }
+    if include_documents {
+        include.push("documents".to_string());
+    }
+
+    let include_list = match IncludeList::try_from(include) {
+        Ok(list) => list,
+        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+    };
+
+    // Create get request
+    let request = match chroma_types::GetRequest::try_new(
+        collection.tenant.clone(),
+        collection.database.clone(),
+        collection_id,
+        ids_vec,
+        where_filter.flatten(),
+        if limit > 0 { Some(limit) } else { None },
+        offset,
+        include_list,
+    ) {
+        Ok(req) => req,
+        Err(e) => {
+            eprintln!("Get request validation error: {:?}", e);
+            return ChromaErrorCode::ValidationError as c_int;
+        },
+    };
+
+    // Execute get
+    let mut frontend = client.frontend.clone();
+    let get_response = match client.runtime.block_on(async { frontend.get(request).await }) {
+        Ok(resp) => resp,
+        Err(_) => return ChromaErrorCode::InternalError as c_int,
+    };
+
+    // Prepare result structure
+    let query_result = Box::new(ChromaQueryResult {
+        ids: ptr::null_mut(),
+        ids_count: 0,
+        distances: ptr::null_mut(),
+        distances_count: 0,
+        metadata_json: ptr::null_mut(),
+        metadata_count: 0,
+        documents: ptr::null_mut(),
+        documents_count: 0,
+    });
+
+    let query_result_ptr = Box::into_raw(query_result);
+    let query_result = unsafe { &mut *query_result_ptr };
+
+    // Set IDs
+    if !get_response.ids.is_empty() {
+        let (array, count) = vec_string_to_c_array(get_response.ids);
+        query_result.ids = array;
+        query_result.ids_count = count;
+    }
+
+    // Set metadata if available
+    if let Some(metadatas) = get_response.metadatas {
+        if !metadatas.is_empty() {
+            let metadata_strings: Vec<String> = metadatas
+                .iter()
+                .map(|m| match m {
+                    Some(metadata) => serde_json::to_string(metadata).unwrap_or_default(),
+                    None => String::new(),
+                })
+                .collect();
+            
+            let (array, count) = vec_string_to_c_array(metadata_strings);
+            query_result.metadata_json = array;
+            query_result.metadata_count = count;
+        }
+    }
+
+    // Set documents if available
+    if let Some(documents) = get_response.documents {
+        if !documents.is_empty() {
+            let doc_strings: Vec<String> = documents
+                .iter()
+                .map(|d| d.clone().unwrap_or_default())
+                .collect();
+            
+            let (array, count) = vec_string_to_c_array(doc_strings);
+            query_result.documents = array;
+            query_result.documents_count = count;
+        }
+    }
+
+    unsafe {
+        *result = query_result_ptr;
+    }
+
+    ChromaErrorCode::Success as c_int
+}
+
+#[no_mangle]
 pub extern "C" fn chroma_query(
     client_handle: *mut ChromaClient,
     collection_handle: *const ChromaCollection,
@@ -982,7 +1586,10 @@ pub extern "C" fn chroma_query(
         include_list,
     ) {
         Ok(req) => req,
-        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+        Err(e) => {
+            eprintln!("Query request validation error: {:?}", e);
+            return ChromaErrorCode::ValidationError as c_int;
+        },
     };
 
     // Execute query

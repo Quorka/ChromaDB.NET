@@ -1,0 +1,23 @@
+# .NET build artifacts
+bin/
+obj/
+out/
+
+# Test results
+TestResults/
+
+# Native libraries
+runtimes/
+src/runtimes/
+
+# User-specific files
+*.user
+*.suo
+*.userprefs
+.vs/
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.log

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -16,7 +16,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\ChromaDB.NET.csproj" />
+    <ProjectReference Include="..\..\src\ChromaDB.NET.csproj" />
   </ItemGroup>
+  
+  <Target Name="CopyNativeLibs" AfterTargets="Build">
+    <ItemGroup>
+      <NativeLibs Include="..\..\src\runtimes\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(OutDir)\runtimes\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    
+    <!-- Also copy the library to the output directory directly for Linux -->
+    <Copy Condition="$([MSBuild]::IsOSPlatform('Linux'))"
+          SourceFiles="..\..\src\runtimes\linux-x64\native\libchroma_csharp.so"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
