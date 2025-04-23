@@ -16,13 +16,11 @@ use chroma_sqlite::config::{MigrationHash, MigrationMode, SqliteDBConfig};
 use chroma_sysdb::{SqliteSysDbConfig, SysDbConfig};
 use chroma_system::System;
 use chroma_types::{
-    Collection, CollectionConfiguration, CollectionMetadataUpdate, CountCollectionsRequest,
-    CreateCollectionRequest, CreateDatabaseRequest, Database, DeleteCollectionRequest,
-    GetCollectionRequest, GetDatabaseRequest, GetResponse, IncludeList, InternalCollectionConfiguration,
-    KnnIndex, ListCollectionsRequest, ListDatabasesRequest, Metadata, QueryRequest, QueryResponse,
-    RawWhereFields, UpdateCollectionConfiguration, UpdateCollectionRequest, UpdateMetadata,
+    CollectionConfiguration, CreateCollectionRequest, CreateDatabaseRequest, 
+    DeleteDatabaseRequest, GetCollectionRequest, GetDatabaseRequest, IncludeList,
+    InternalCollectionConfiguration, KnnIndex, Metadata, QueryRequest, RawWhereFields,
 };
-use libc::{c_char, c_double, c_float, c_int, c_uchar, c_uint, size_t};
+use libc::{c_char, c_float, c_int, c_uint, size_t};
 use std::ffi::{CStr, CString};
 use std::ptr;
 use std::time::SystemTime;
@@ -74,7 +72,7 @@ pub struct SqliteConfigFFI {
 pub struct ChromaQueryResult {
     ids: *mut *mut c_char,
     ids_count: size_t,
-    distances: *mut *mut c_float,
+    distances: *mut c_float,
     distances_count: size_t,
     metadata_json: *mut *mut c_char,
     metadata_count: size_t,
@@ -271,7 +269,7 @@ pub extern "C" fn chroma_create_client(
             };
             
             SqliteDBConfig {
-                url,
+                url: Some(url),
                 hash_type,
                 migration_mode,
             }
@@ -279,7 +277,7 @@ pub extern "C" fn chroma_create_client(
     } else {
         // Default SQLite configuration
         SqliteDBConfig {
-            url: "sqlite:///chroma.db".to_string(),
+            url: Some("sqlite:///chroma.db".to_string()),
             hash_type: MigrationHash::SHA256,
             migration_mode: MigrationMode::Apply,
         }
@@ -659,7 +657,7 @@ pub extern "C" fn chroma_create_collection(
     match client.runtime.block_on(async { frontend.create_collection(request).await }) {
         Ok(collection) => {
             let collection_wrapper = Box::new(ChromaCollection {
-                id: collection.id.0.to_string(),
+                id: collection.collection_id.0.to_string(),
                 tenant,
                 database,
             });
@@ -728,7 +726,7 @@ pub extern "C" fn chroma_get_collection(
     match client.runtime.block_on(async { frontend.get_collection(request).await }) {
         Ok(collection) => {
             let collection_wrapper = Box::new(ChromaCollection {
-                id: collection.id.0.to_string(),
+                id: collection.collection_id.0.to_string(),
                 tenant,
                 database,
             });
@@ -1021,9 +1019,24 @@ pub extern "C" fn chroma_query(
     if let Some(distances) = query_response.distances {
         if !distances.is_empty() {
             let distance_vec = distances[0].clone();
-            let (array, count) = vec_f32_to_c_array(distance_vec);
+            
+            // Allocate memory for the distances array
+            let array_count = distance_vec.len();
+            let array = unsafe { 
+                libc::malloc(array_count * std::mem::size_of::<c_float>()) as *mut c_float 
+            };
+            
+            // Copy distances to the array
+            if !array.is_null() {
+                unsafe {
+                    for (i, value) in distance_vec.iter().enumerate() {
+                        *array.add(i) = value.unwrap_or(0.0);
+                    }
+                }
+            }
+            
             query_result.distances = array;
-            query_result.distances_count = count;
+            query_result.distances_count = array_count;
         }
     }
 

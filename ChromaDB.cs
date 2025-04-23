@@ -213,8 +213,8 @@ namespace ChromaDB.NET
                 configJson, 
                 metadataJson, 
                 false, 
-                null, 
-                null, 
+                (string?)null, 
+                (string?)null, 
                 out var collectionHandle);
                 
             if (result != 0)
@@ -234,8 +234,8 @@ namespace ChromaDB.NET
             var result = NativeMethods.chroma_get_collection(
                 _handle, 
                 name, 
-                null, 
-                null, 
+                (string?)null, 
+                (string?)null, 
                 out var collectionHandle);
                 
             if (result != 0)

@@ -35,7 +35,7 @@ typedef struct SqliteConfigFFI {
 typedef struct ChromaQueryResult {
     char** ids;
     size_t ids_count;
-    float** distances;
+    float* distances;
     size_t distances_count;
     char** metadata_json;
     size_t metadata_count;
