@@ -1447,8 +1447,26 @@ pub extern "C" fn chroma_count(
     client_handle: *mut ChromaClient,
     collection_handle: *const ChromaCollection,
     result: *mut c_uint,
+    error_out: *mut *mut ChromaError,
 ) -> c_int {
+    let func_name = "chroma_count";
+
     if client_handle.is_null() || collection_handle.is_null() || result.is_null() {
+        let message = if client_handle.is_null() {
+            "Client handle pointer is null"
+        } else if collection_handle.is_null() {
+            "Collection handle pointer is null"
+        } else {
+            "Result pointer is null"
+        };
+
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            message,
+            func_name,
+            None,
+        );
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
@@ -1458,7 +1476,16 @@ pub extern "C" fn chroma_count(
     // Parse collection ID
     let collection_id = match uuid::Uuid::parse_str(&collection.id) {
         Ok(id) => chroma_types::CollectionUuid(id),
-        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InvalidUuid,
+                "Invalid collection UUID",
+                func_name,
+                Some(&format!("UUID parse error: {}", e)),
+            );
+            return ChromaErrorCode::InvalidUuid as c_int;
+        }
     };
 
     // Create count request
@@ -1468,7 +1495,16 @@ pub extern "C" fn chroma_count(
         collection_id,
     ) {
         Ok(req) => req,
-        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Failed to create count request",
+                func_name,
+                Some(&format!("Validation error: {:?}", e)),
+            );
+            return ChromaErrorCode::ValidationError as c_int;
+        }
     };
 
     // Execute request
@@ -1481,10 +1517,17 @@ pub extern "C" fn chroma_count(
             unsafe {
                 *result = count_response;
             }
+            set_success(error_out);
             ChromaErrorCode::Success as c_int
         }
         Err(e) => {
-            eprintln!("Count error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::InternalError,
+                "Failed to count documents",
+                func_name,
+                Some(&format!("Error: {:?}", e)),
+            );
             ChromaErrorCode::InternalError as c_int
         }
     }
@@ -1500,8 +1543,28 @@ pub extern "C" fn chroma_update(
     embedding_dim: size_t,
     metadatas_json: *const *const c_char,
     documents: *const *const c_char,
+    error_out: *mut *mut ChromaError,
 ) -> c_int {
+    let func_name = "chroma_update";
+
     if client_handle.is_null() || collection_handle.is_null() || ids.is_null() || ids_count == 0 {
+        let message = if client_handle.is_null() {
+            "Client handle pointer is null"
+        } else if collection_handle.is_null() {
+            "Collection handle pointer is null"
+        } else if ids.is_null() {
+            "IDs pointer is null"
+        } else {
+            "IDs count is zero"
+        };
+
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            message,
+            func_name,
+            None,
+        );
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
@@ -1512,7 +1575,16 @@ pub extern "C" fn chroma_update(
     let ids_vec = unsafe {
         match c_array_to_vec_string(ids, ids_count) {
             Ok(v) => v,
-            Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            Err(e) => {
+                set_error(
+                    error_out,
+                    ChromaErrorCode::InvalidArgument,
+                    "Failed to convert IDs array",
+                    func_name,
+                    Some(&e.to_string()),
+                );
+                return ChromaErrorCode::InvalidArgument as c_int;
+            }
         }
     };
 
@@ -1544,7 +1616,16 @@ pub extern "C" fn chroma_update(
                 if !metadata_ptr.is_null() {
                     let metadata_str = match c_str_to_string(metadata_ptr) {
                         Ok(s) => s,
-                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                        Err(e) => {
+                            set_error(
+                                error_out,
+                                ChromaErrorCode::InvalidArgument,
+                                "Failed to convert metadata string",
+                                func_name,
+                                Some(&format!("Error at index {}: {}", i, e)),
+                            );
+                            return ChromaErrorCode::InvalidArgument as c_int;
+                        }
                     };
 
                     if metadata_str.is_empty() {
@@ -1552,7 +1633,16 @@ pub extern "C" fn chroma_update(
                     } else {
                         match serde_json::from_str::<UpdateMetadata>(&metadata_str) {
                             Ok(metadata) => result.push(Some(metadata)),
-                            Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                            Err(e) => {
+                                set_error(
+                                    error_out,
+                                    ChromaErrorCode::ValidationError,
+                                    "Invalid metadata JSON",
+                                    func_name,
+                                    Some(&format!("Error parsing metadata at index {}: {}", i, e)),
+                                );
+                                return ChromaErrorCode::ValidationError as c_int;
+                            }
                         }
                     }
                 } else {
@@ -1580,7 +1670,16 @@ pub extern "C" fn chroma_update(
                                 result.push(Some(s));
                             }
                         }
-                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                        Err(e) => {
+                            set_error(
+                                error_out,
+                                ChromaErrorCode::InvalidArgument,
+                                "Failed to convert document string",
+                                func_name,
+                                Some(&format!("Error at index {}: {}", i, e)),
+                            );
+                            return ChromaErrorCode::InvalidArgument as c_int;
+                        }
                     }
                 } else {
                     result.push(None);
@@ -1595,7 +1694,16 @@ pub extern "C" fn chroma_update(
     // Parse collection ID
     let collection_id = match uuid::Uuid::parse_str(&collection.id) {
         Ok(id) => chroma_types::CollectionUuid(id),
-        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InvalidUuid,
+                "Invalid collection UUID",
+                func_name,
+                Some(&format!("UUID parse error: {}", e)),
+            );
+            return ChromaErrorCode::InvalidUuid as c_int;
+        }
     };
 
     // Create update request
@@ -1611,7 +1719,13 @@ pub extern "C" fn chroma_update(
     ) {
         Ok(req) => req,
         Err(e) => {
-            eprintln!("Update request validation error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Failed to create update request",
+                func_name,
+                Some(&format!("Validation error: {:?}", e)),
+            );
             return ChromaErrorCode::ValidationError as c_int;
         }
     };
@@ -1622,9 +1736,18 @@ pub extern "C" fn chroma_update(
         .runtime
         .block_on(async { frontend.update(request).await })
     {
-        Ok(_) => ChromaErrorCode::Success as c_int,
+        Ok(_) => {
+            set_success(error_out);
+            ChromaErrorCode::Success as c_int
+        }
         Err(e) => {
-            eprintln!("Update error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::InternalError,
+                "Failed to update documents",
+                func_name,
+                Some(&format!("Error: {:?}", e)),
+            );
             ChromaErrorCode::InternalError as c_int
         }
     }
@@ -1640,8 +1763,28 @@ pub extern "C" fn chroma_upsert(
     embedding_dim: size_t,
     metadatas_json: *const *const c_char,
     documents: *const *const c_char,
+    error_out: *mut *mut ChromaError,
 ) -> c_int {
+    let func_name = "chroma_upsert";
+
     if client_handle.is_null() || collection_handle.is_null() || ids.is_null() || ids_count == 0 {
+        let message = if client_handle.is_null() {
+            "Client handle pointer is null"
+        } else if collection_handle.is_null() {
+            "Collection handle pointer is null"
+        } else if ids.is_null() {
+            "IDs pointer is null"
+        } else {
+            "IDs count is zero"
+        };
+
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            message,
+            func_name,
+            None,
+        );
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
@@ -1652,7 +1795,16 @@ pub extern "C" fn chroma_upsert(
     let ids_vec = unsafe {
         match c_array_to_vec_string(ids, ids_count) {
             Ok(v) => v,
-            Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+            Err(e) => {
+                set_error(
+                    error_out,
+                    ChromaErrorCode::InvalidArgument,
+                    "Failed to convert IDs array",
+                    func_name,
+                    Some(&e.to_string()),
+                );
+                return ChromaErrorCode::InvalidArgument as c_int;
+            }
         }
     };
 
@@ -1665,6 +1817,13 @@ pub extern "C" fn chroma_upsert(
                 if !embedding_ptr.is_null() {
                     result.push(c_array_to_vec_f32(embedding_ptr, embedding_dim));
                 } else {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Embedding pointer is null",
+                        func_name,
+                        Some(&format!("Null embedding at index {}", i)),
+                    );
                     return ChromaErrorCode::InvalidArgument as c_int;
                 }
             }
@@ -1683,7 +1842,16 @@ pub extern "C" fn chroma_upsert(
                 if !metadata_ptr.is_null() {
                     let metadata_str = match c_str_to_string(metadata_ptr) {
                         Ok(s) => s,
-                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                        Err(e) => {
+                            set_error(
+                                error_out,
+                                ChromaErrorCode::InvalidArgument,
+                                "Failed to convert metadata string",
+                                func_name,
+                                Some(&format!("Error at index {}: {}", i, e)),
+                            );
+                            return ChromaErrorCode::InvalidArgument as c_int;
+                        }
                     };
 
                     if metadata_str.is_empty() {
@@ -1691,7 +1859,16 @@ pub extern "C" fn chroma_upsert(
                     } else {
                         match serde_json::from_str::<UpdateMetadata>(&metadata_str) {
                             Ok(metadata) => result.push(Some(metadata)),
-                            Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                            Err(e) => {
+                                set_error(
+                                    error_out,
+                                    ChromaErrorCode::ValidationError,
+                                    "Invalid metadata JSON",
+                                    func_name,
+                                    Some(&format!("Error parsing metadata at index {}: {}", i, e)),
+                                );
+                                return ChromaErrorCode::ValidationError as c_int;
+                            }
                         }
                     }
                 } else {
@@ -1719,7 +1896,16 @@ pub extern "C" fn chroma_upsert(
                                 result.push(Some(s));
                             }
                         }
-                        Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                        Err(e) => {
+                            set_error(
+                                error_out,
+                                ChromaErrorCode::InvalidArgument,
+                                "Failed to convert document string",
+                                func_name,
+                                Some(&format!("Error at index {}: {}", i, e)),
+                            );
+                            return ChromaErrorCode::InvalidArgument as c_int;
+                        }
                     }
                 } else {
                     result.push(None);
@@ -1734,7 +1920,16 @@ pub extern "C" fn chroma_upsert(
     // Parse collection ID
     let collection_id = match uuid::Uuid::parse_str(&collection.id) {
         Ok(id) => chroma_types::CollectionUuid(id),
-        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InvalidUuid,
+                "Invalid collection UUID",
+                func_name,
+                Some(&format!("UUID parse error: {}", e)),
+            );
+            return ChromaErrorCode::InvalidUuid as c_int;
+        }
     };
 
     // Create upsert request
@@ -1750,7 +1945,13 @@ pub extern "C" fn chroma_upsert(
     ) {
         Ok(req) => req,
         Err(e) => {
-            eprintln!("Upsert request validation error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Failed to create upsert request",
+                func_name,
+                Some(&format!("Validation error: {:?}", e)),
+            );
             return ChromaErrorCode::ValidationError as c_int;
         }
     };
@@ -1761,9 +1962,18 @@ pub extern "C" fn chroma_upsert(
         .runtime
         .block_on(async { frontend.upsert(request).await })
     {
-        Ok(_) => ChromaErrorCode::Success as c_int,
+        Ok(_) => {
+            set_success(error_out);
+            ChromaErrorCode::Success as c_int
+        }
         Err(e) => {
-            eprintln!("Upsert error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::InternalError,
+                "Failed to upsert documents",
+                func_name,
+                Some(&format!("Error: {:?}", e)),
+            );
             ChromaErrorCode::InternalError as c_int
         }
     }
@@ -1777,13 +1987,36 @@ pub extern "C" fn chroma_delete(
     ids_count: size_t,
     where_filter_json: *const c_char,
     where_document_filter: *const c_char,
+    error_out: *mut *mut ChromaError,
 ) -> c_int {
+    let func_name = "chroma_delete";
+
     if client_handle.is_null() || collection_handle.is_null() {
+        let message = if client_handle.is_null() {
+            "Client handle pointer is null"
+        } else {
+            "Collection handle pointer is null"
+        };
+
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            message,
+            func_name,
+            None,
+        );
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
     // If both ids and where filter are null, return an error
     if ids.is_null() && where_filter_json.is_null() && where_document_filter.is_null() {
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            "Either document IDs or filter criteria must be specified",
+            func_name,
+            None,
+        );
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
@@ -1795,7 +2028,16 @@ pub extern "C" fn chroma_delete(
         unsafe {
             match c_array_to_vec_string(ids, ids_count) {
                 Ok(v) => Some(v),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert IDs array",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         }
     } else {
@@ -1807,7 +2049,16 @@ pub extern "C" fn chroma_delete(
         let where_json_str = if !where_filter_json.is_null() {
             match c_str_to_string(where_filter_json) {
                 Ok(s) => Some(s),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert where filter JSON string",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         } else {
             None
@@ -1816,24 +2067,76 @@ pub extern "C" fn chroma_delete(
         let where_document = if !where_document_filter.is_null() {
             match c_str_to_string(where_document_filter) {
                 Ok(s) => Some(s),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert document filter string",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         } else {
             None
         };
 
         if where_json_str.is_none() && where_document.is_none() {
-            None
+            // Empty where filter - create with empty JSON objects
+            match RawWhereFields::from_json_str(Some("{}"), Some("{}")) {
+                Ok(raw) => match raw.parse() {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        set_error(
+                            error_out,
+                            ChromaErrorCode::ValidationError,
+                            "Failed to parse default where filters",
+                            func_name,
+                            Some(&format!("Filter validation error: {:?}", e)),
+                        );
+                        return ChromaErrorCode::ValidationError as c_int;
+                    }
+                },
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::ValidationError,
+                        "Failed to create default where filters",
+                        func_name,
+                        Some(&format!("Filter creation error: {:?}", e)),
+                    );
+                    return ChromaErrorCode::ValidationError as c_int;
+                }
+            }
         } else {
             match RawWhereFields::from_json_str(
                 where_json_str.as_deref(),
                 where_document.as_deref(),
             ) {
                 Ok(raw) => match raw.parse() {
-                    Ok(parsed) => Some(parsed),
-                    Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        set_error(
+                            error_out,
+                            ChromaErrorCode::ValidationError,
+                            "Failed to parse where filters",
+                            func_name,
+                            Some(&format!("Filter validation error: {:?}", e)),
+                        );
+                        return ChromaErrorCode::ValidationError as c_int;
+                    }
                 },
-                Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::ValidationError,
+                        "Failed to create where filters",
+                        func_name,
+                        Some(&format!("Filter creation error: {:?}", e)),
+                    );
+                    return ChromaErrorCode::ValidationError as c_int;
+                }
             }
         }
     };
@@ -1841,7 +2144,16 @@ pub extern "C" fn chroma_delete(
     // Parse collection ID
     let collection_id = match uuid::Uuid::parse_str(&collection.id) {
         Ok(id) => chroma_types::CollectionUuid(id),
-        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InvalidUuid,
+                "Invalid collection UUID",
+                func_name,
+                Some(&format!("UUID parse error: {}", e)),
+            );
+            return ChromaErrorCode::InvalidUuid as c_int;
+        }
     };
 
     // Create delete request
@@ -1850,11 +2162,17 @@ pub extern "C" fn chroma_delete(
         collection.database.clone(),
         collection_id,
         ids_vec,
-        where_filter.flatten(),
+        where_filter, // Removed incorrect flatten() call
     ) {
         Ok(req) => req,
         Err(e) => {
-            eprintln!("Delete request validation error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Failed to create delete request",
+                func_name,
+                Some(&format!("Validation error: {:?}", e)),
+            );
             return ChromaErrorCode::ValidationError as c_int;
         }
     };
@@ -1865,8 +2183,20 @@ pub extern "C" fn chroma_delete(
         .runtime
         .block_on(async { frontend.delete(request).await })
     {
-        Ok(_) => ChromaErrorCode::Success as c_int,
-        Err(_) => ChromaErrorCode::InternalError as c_int,
+        Ok(_) => {
+            set_success(error_out);
+            ChromaErrorCode::Success as c_int
+        }
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InternalError,
+                "Failed to delete documents",
+                func_name,
+                Some(&format!("Error: {:?}", e)),
+            );
+            ChromaErrorCode::InternalError as c_int
+        }
     }
 }
 
@@ -1884,8 +2214,26 @@ pub extern "C" fn chroma_get(
     include_metadatas: bool,
     include_documents: bool,
     result: *mut *mut ChromaQueryResult,
+    error_out: *mut *mut ChromaError,
 ) -> c_int {
+    let func_name = "chroma_get";
+
     if client_handle.is_null() || collection_handle.is_null() || result.is_null() {
+        let message = if client_handle.is_null() {
+            "Client handle pointer is null"
+        } else if collection_handle.is_null() {
+            "Collection handle pointer is null"
+        } else {
+            "Result pointer is null"
+        };
+
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            message,
+            func_name,
+            None,
+        );
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
@@ -1897,7 +2245,16 @@ pub extern "C" fn chroma_get(
         unsafe {
             match c_array_to_vec_string(ids, ids_count) {
                 Ok(v) => Some(v),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert IDs array",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         }
     } else {
@@ -1909,7 +2266,16 @@ pub extern "C" fn chroma_get(
         let where_json_str = if !where_filter_json.is_null() {
             match c_str_to_string(where_filter_json) {
                 Ok(s) => Some(s),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert where filter JSON string",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         } else {
             None
@@ -1918,24 +2284,76 @@ pub extern "C" fn chroma_get(
         let where_document = if !where_document_filter.is_null() {
             match c_str_to_string(where_document_filter) {
                 Ok(s) => Some(s),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert document filter string",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         } else {
             None
         };
 
         if where_json_str.is_none() && where_document.is_none() {
-            None
+            // Empty where filter - create with empty JSON objects
+            match RawWhereFields::from_json_str(Some("{}"), Some("{}")) {
+                Ok(raw) => match raw.parse() {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        set_error(
+                            error_out,
+                            ChromaErrorCode::ValidationError,
+                            "Failed to parse default where filters",
+                            func_name,
+                            Some(&format!("Filter validation error: {:?}", e)),
+                        );
+                        return ChromaErrorCode::ValidationError as c_int;
+                    }
+                },
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::ValidationError,
+                        "Failed to create default where filters",
+                        func_name,
+                        Some(&format!("Filter creation error: {:?}", e)),
+                    );
+                    return ChromaErrorCode::ValidationError as c_int;
+                }
+            }
         } else {
             match RawWhereFields::from_json_str(
                 where_json_str.as_deref(),
                 where_document.as_deref(),
             ) {
                 Ok(raw) => match raw.parse() {
-                    Ok(parsed) => Some(parsed),
-                    Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        set_error(
+                            error_out,
+                            ChromaErrorCode::ValidationError,
+                            "Failed to parse where filters",
+                            func_name,
+                            Some(&format!("Filter validation error: {:?}", e)),
+                        );
+                        return ChromaErrorCode::ValidationError as c_int;
+                    }
                 },
-                Err(_) => return ChromaErrorCode::ValidationError as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::ValidationError,
+                        "Failed to create where filters",
+                        func_name,
+                        Some(&format!("Filter creation error: {:?}", e)),
+                    );
+                    return ChromaErrorCode::ValidationError as c_int;
+                }
             }
         }
     };
@@ -1943,7 +2361,16 @@ pub extern "C" fn chroma_get(
     // Parse collection ID
     let collection_id = match uuid::Uuid::parse_str(&collection.id) {
         Ok(id) => chroma_types::CollectionUuid(id),
-        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InvalidUuid,
+                "Invalid collection UUID",
+                func_name,
+                Some(&format!("UUID parse error: {}", e)),
+            );
+            return ChromaErrorCode::InvalidUuid as c_int;
+        }
     };
 
     // Build include list
@@ -1960,7 +2387,16 @@ pub extern "C" fn chroma_get(
 
     let include_list = match IncludeList::try_from(include) {
         Ok(list) => list,
-        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Invalid include list",
+                func_name,
+                Some(&format!("Include list validation error: {:?}", e)),
+            );
+            return ChromaErrorCode::ValidationError as c_int;
+        }
     };
 
     // Create get request
@@ -1969,14 +2405,20 @@ pub extern "C" fn chroma_get(
         collection.database.clone(),
         collection_id,
         ids_vec,
-        where_filter.flatten(),
+        where_filter, // Removed incorrect flatten() call
         if limit > 0 { Some(limit) } else { None },
         offset,
         include_list,
     ) {
         Ok(req) => req,
         Err(e) => {
-            eprintln!("Get request validation error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Failed to create get request",
+                func_name,
+                Some(&format!("Validation error: {:?}", e)),
+            );
             return ChromaErrorCode::ValidationError as c_int;
         }
     };
@@ -1988,7 +2430,16 @@ pub extern "C" fn chroma_get(
         .block_on(async { frontend.get(request).await })
     {
         Ok(resp) => resp,
-        Err(_) => return ChromaErrorCode::InternalError as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InternalError,
+                "Failed to get documents",
+                func_name,
+                Some(&format!("Error: {:?}", e)),
+            );
+            return ChromaErrorCode::InternalError as c_int;
+        }
     };
 
     // Prepare result structure
@@ -2048,6 +2499,7 @@ pub extern "C" fn chroma_get(
         *result = query_result_ptr;
     }
 
+    set_success(error_out);
     ChromaErrorCode::Success as c_int
 }
 
@@ -2065,12 +2517,32 @@ pub extern "C" fn chroma_query(
     include_documents: bool,
     include_distances: bool,
     result: *mut *mut ChromaQueryResult,
+    error_out: *mut *mut ChromaError,
 ) -> c_int {
+    let func_name = "chroma_query";
+
     if client_handle.is_null()
         || collection_handle.is_null()
         || query_embeddings.is_null()
         || result.is_null()
     {
+        let message = if client_handle.is_null() {
+            "Client handle pointer is null"
+        } else if collection_handle.is_null() {
+            "Collection handle pointer is null"
+        } else if query_embeddings.is_null() {
+            "Query embeddings pointer is null"
+        } else {
+            "Result pointer is null"
+        };
+
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            message,
+            func_name,
+            None,
+        );
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
@@ -2080,18 +2552,50 @@ pub extern "C" fn chroma_query(
     // Parse collection ID
     let collection_id = match uuid::Uuid::parse_str(&collection.id) {
         Ok(id) => chroma_types::CollectionUuid(id),
-        Err(_) => return ChromaErrorCode::InvalidUuid as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InvalidUuid,
+                "Invalid collection UUID",
+                func_name,
+                Some(&format!("UUID parse error: {}", e)),
+            );
+            return ChromaErrorCode::InvalidUuid as c_int;
+        }
     };
 
     // Convert C embedding to Rust vector
     let query_embedding_vec = unsafe { vec![c_array_to_vec_f32(query_embeddings, embedding_dim)] };
+    if query_embedding_vec[0].is_empty() || query_embedding_vec[0].len() != embedding_dim {
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            "Invalid query embedding",
+            func_name,
+            Some(&format!(
+                "Expected dimension {}, got {}",
+                embedding_dim,
+                query_embedding_vec[0].len()
+            )),
+        );
+        return ChromaErrorCode::InvalidArgument as c_int;
+    }
 
     // Parse where filters
     let where_filter = unsafe {
         let where_json_str = if !where_filter_json.is_null() {
             match c_str_to_string(where_filter_json) {
                 Ok(s) => Some(s),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert where filter JSON string",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         } else {
             None
@@ -2100,18 +2604,77 @@ pub extern "C" fn chroma_query(
         let where_document = if !where_document_filter.is_null() {
             match c_str_to_string(where_document_filter) {
                 Ok(s) => Some(s),
-                Err(_) => return ChromaErrorCode::InvalidArgument as c_int,
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::InvalidArgument,
+                        "Failed to convert document filter string",
+                        func_name,
+                        Some(&e.to_string()),
+                    );
+                    return ChromaErrorCode::InvalidArgument as c_int;
+                }
             }
         } else {
             None
         };
 
-        match RawWhereFields::from_json_str(where_json_str.as_deref(), where_document.as_deref()) {
-            Ok(raw) => match raw.parse() {
-                Ok(parsed) => parsed,
-                Err(_) => return ChromaErrorCode::ValidationError as c_int,
-            },
-            Err(_) => return ChromaErrorCode::ValidationError as c_int,
+        if where_json_str.is_none() && where_document.is_none() {
+            // Empty where filter - create with empty JSON objects
+            match RawWhereFields::from_json_str(Some("{}"), Some("{}")) {
+                Ok(raw) => match raw.parse() {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        set_error(
+                            error_out,
+                            ChromaErrorCode::ValidationError,
+                            "Failed to parse default where filters",
+                            func_name,
+                            Some(&format!("Filter validation error: {:?}", e)),
+                        );
+                        return ChromaErrorCode::ValidationError as c_int;
+                    }
+                },
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::ValidationError,
+                        "Failed to create default where filters",
+                        func_name,
+                        Some(&format!("Filter creation error: {:?}", e)),
+                    );
+                    return ChromaErrorCode::ValidationError as c_int;
+                }
+            }
+        } else {
+            match RawWhereFields::from_json_str(
+                where_json_str.as_deref(),
+                where_document.as_deref(),
+            ) {
+                Ok(raw) => match raw.parse() {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        set_error(
+                            error_out,
+                            ChromaErrorCode::ValidationError,
+                            "Failed to parse where filters",
+                            func_name,
+                            Some(&format!("Filter validation error: {:?}", e)),
+                        );
+                        return ChromaErrorCode::ValidationError as c_int;
+                    }
+                },
+                Err(e) => {
+                    set_error(
+                        error_out,
+                        ChromaErrorCode::ValidationError,
+                        "Failed to create where filters",
+                        func_name,
+                        Some(&format!("Filter creation error: {:?}", e)),
+                    );
+                    return ChromaErrorCode::ValidationError as c_int;
+                }
+            }
         }
     };
 
@@ -2132,7 +2695,16 @@ pub extern "C" fn chroma_query(
 
     let include_list = match IncludeList::try_from(include) {
         Ok(list) => list,
-        Err(_) => return ChromaErrorCode::ValidationError as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Invalid include list",
+                func_name,
+                Some(&format!("Include list validation error: {:?}", e)),
+            );
+            return ChromaErrorCode::ValidationError as c_int;
+        }
     };
 
     // Create query request
@@ -2148,7 +2720,13 @@ pub extern "C" fn chroma_query(
     ) {
         Ok(req) => req,
         Err(e) => {
-            eprintln!("Query request validation error: {:?}", e);
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Failed to create query request",
+                func_name,
+                Some(&format!("Validation error: {:?}", e)),
+            );
             return ChromaErrorCode::ValidationError as c_int;
         }
     };
@@ -2160,7 +2738,16 @@ pub extern "C" fn chroma_query(
         .block_on(async { frontend.query(request).await })
     {
         Ok(resp) => resp,
-        Err(_) => return ChromaErrorCode::InternalError as c_int,
+        Err(e) => {
+            set_error(
+                error_out,
+                ChromaErrorCode::InternalError,
+                "Failed to execute query",
+                func_name,
+                Some(&format!("Error: {:?}", e)),
+            );
+            return ChromaErrorCode::InternalError as c_int;
+        }
     };
 
     // Convert query response to C struct
@@ -2188,7 +2775,7 @@ pub extern "C" fn chroma_query(
 
     // Set distances if available
     if let Some(distances) = query_response.distances {
-        if !distances.is_empty() {
+        if !distances.is_empty() && !distances[0].is_empty() {
             let distance_vec = distances[0].clone();
 
             // Allocate memory for the distances array
@@ -2204,6 +2791,19 @@ pub extern "C" fn chroma_query(
                         *array.add(i) = value.unwrap_or(0.0);
                     }
                 }
+            } else {
+                set_error(
+                    error_out,
+                    ChromaErrorCode::MemoryError,
+                    "Failed to allocate memory for distances",
+                    func_name,
+                    None,
+                );
+                // Clean up allocated memory
+                unsafe {
+                    chroma_free_query_result(query_result_ptr);
+                }
+                return ChromaErrorCode::MemoryError as c_int;
             }
 
             query_result.distances = array;
@@ -2223,6 +2823,21 @@ pub extern "C" fn chroma_query(
                 .collect();
 
             let (array, count) = vec_string_to_c_array(metadata_strings);
+            if array.is_null() && count > 0 {
+                set_error(
+                    error_out,
+                    ChromaErrorCode::MemoryError,
+                    "Failed to allocate memory for metadata",
+                    func_name,
+                    None,
+                );
+                // Clean up allocated memory
+                unsafe {
+                    chroma_free_query_result(query_result_ptr);
+                }
+                return ChromaErrorCode::MemoryError as c_int;
+            }
+
             query_result.metadata_json = array;
             query_result.metadata_count = count;
         }
@@ -2237,6 +2852,21 @@ pub extern "C" fn chroma_query(
                 .collect();
 
             let (array, count) = vec_string_to_c_array(doc_strings);
+            if array.is_null() && count > 0 {
+                set_error(
+                    error_out,
+                    ChromaErrorCode::MemoryError,
+                    "Failed to allocate memory for documents",
+                    func_name,
+                    None,
+                );
+                // Clean up allocated memory
+                unsafe {
+                    chroma_free_query_result(query_result_ptr);
+                }
+                return ChromaErrorCode::MemoryError as c_int;
+            }
+
             query_result.documents = array;
             query_result.documents_count = count;
         }
@@ -2246,5 +2876,6 @@ pub extern "C" fn chroma_query(
         *result = query_result_ptr;
     }
 
+    set_success(error_out);
     ChromaErrorCode::Success as c_int
 }

@@ -183,7 +183,7 @@ namespace ChromaDB.NET.Tests
             try
             {
                 collection.Update("non-existent", "Update attempt", null);
-                // Assert.Fail("Expected an exception but none was thrown"); - Unclear if should be an exception here
+                //Assert.Fail("Expected an exception but none was thrown"); - unclear if an exception should be thrown
             }
             catch (ChromaException)
             {
