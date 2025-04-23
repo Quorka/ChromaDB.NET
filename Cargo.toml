@@ -1,0 +1,36 @@
+[package]
+name = "chroma_csharp"
+version = "0.1.0"
+edition = "2021"
+description = "C# bindings for ChromaDB"
+license = "Apache-2.0"
+
+[lib]
+name = "chroma_csharp"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+chroma-frontend = { path = "../frontend" }
+chroma-cache = { path = "../cache" }
+chroma-config = { path = "../config" }
+chroma-log = { path = "../log" }
+chroma-segment = { path = "../segment" }
+chroma-sqlite = { path = "../sqlite" }
+chroma-sysdb = { path = "../sysdb" }
+chroma-system = { path = "../system" }
+chroma-types = { path = "../types" }
+chroma-error = { path = "../error" }
+
+# FFI dependencies
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# For error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# For FFI string conversions
+cstr = "0.2.11"
