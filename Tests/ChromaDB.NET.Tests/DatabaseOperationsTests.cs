@@ -15,6 +15,7 @@ namespace ChromaDB.NET.Tests
         {
             _testDir = Path.Combine(Path.GetTempPath(), "chromadb-dotnet-tests", Guid.NewGuid().ToString());
             Directory.CreateDirectory(_testDir);
+            Console.WriteLine($"Test directory created for database operations: {_testDir}");
         }
 
         [TestCleanup]
@@ -24,19 +25,23 @@ namespace ChromaDB.NET.Tests
             {
                 if (Directory.Exists(_testDir))
                 {
+                    // Add a small delay to allow file handles to be released
+                    System.Threading.Thread.Sleep(100); // e.g., 100ms, adjust if needed
                     Directory.Delete(_testDir, true);
+                    Console.WriteLine($"Cleaned up test directory: {_testDir}");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore cleanup errors
+                // Log the error instead of ignoring it
+                Console.WriteLine($"Error cleaning up test directory '{_testDir}': {ex.Message}");
             }
         }
 
         [TestMethod]
         public void CreateDatabase_Success()
         {
-            var databaseName = "test-database-1";
+            var databaseName = "test-database-1" + Guid.NewGuid().ToString("N").Substring(0, 8);
             using var client = new ChromaClient(persistDirectory: _testDir);
 
             // Create a database
@@ -48,7 +53,7 @@ namespace ChromaDB.NET.Tests
         [TestMethod]
         public void GetDatabaseId_Success()
         {
-            var databaseName = "test-database-2";
+            var databaseName = "test-database-2" + Guid.NewGuid().ToString("N").Substring(0, 8);
             using var client = new ChromaClient(persistDirectory: _testDir);
 
             // Create a database

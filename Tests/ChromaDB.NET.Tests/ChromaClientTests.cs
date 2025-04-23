@@ -57,39 +57,41 @@ namespace ChromaDB.NET.Tests
             {
                 if (Directory.Exists(_testDir))
                 {
+                    // Add a small delay to allow file handles to be released
+                    System.Threading.Thread.Sleep(100); // e.g., 100ms, adjust if needed
                     Directory.Delete(_testDir, true);
+                    Console.WriteLine($"Cleaned up test directory: {_testDir}");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore cleanup errors
+                // Log the error instead of ignoring it
+                Console.WriteLine($"Error cleaning up test directory '{_testDir}': {ex.Message}");
+                // Optionally re-throw or Assert.Fail if cleanup failure should fail the test run
+                // Assert.Fail($"Cleanup failed: {ex.Message}");
             }
         }
 
         [TestMethod]
         public void CreateClient_Success()
         {
-            using var client = new ChromaClient(persistDirectory: _testDir);
+            using var client = new ChromaClient();
             Assert.IsNotNull(client);
         }
 
         [TestMethod]
         public void CreateCollection_Success()
         {
-            // Found issue: In /home/david/VSCode/chroma/rust/types/src/validators.rs
-            // There's a syntax error in the regex: r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1, 510}[a-zA-Z0-9]$"
-            // Should be: r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,510}[a-zA-Z0-9]$" (no space in the quantifier)
-
-            using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var client = new ChromaClient();
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
             Assert.IsNotNull(collection);
         }
 
         [TestMethod]
         public void AddDocuments_Success()
         {
-            using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var client = new ChromaClient();
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             var documents = new List<ChromaDocument>
             {
@@ -116,8 +118,8 @@ namespace ChromaDB.NET.Tests
         [TestMethod]
         public void Query_ReturnsResults()
         {
-            using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var client = new ChromaClient();
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             var documents = new List<ChromaDocument>
             {
@@ -155,8 +157,8 @@ namespace ChromaDB.NET.Tests
         [TestMethod]
         public void Query_WithFilter_ReturnsFilteredResults()
         {
-            using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var client = new ChromaClient();
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             var documents = new List<ChromaDocument>
             {

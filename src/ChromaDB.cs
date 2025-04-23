@@ -30,7 +30,7 @@ namespace ChromaDB.NET
         /// Document text content
         /// </summary>
         public string Text { get; set; }
-        
+
         /// <summary>
         /// Creates a new document with the specified ID and text
         /// </summary>
@@ -47,7 +47,7 @@ namespace ChromaDB.NET
                 Metadata = metadata ?? new Dictionary<string, object>()
             };
         }
-        
+
         /// <summary>
         /// Creates a new document with the specified ID and embedding
         /// </summary>
@@ -90,12 +90,12 @@ namespace ChromaDB.NET
         /// Document contents
         /// </summary>
         public List<string> Documents { get; set; } = new List<string>();
-        
+
         /// <summary>
         /// Gets the number of results
         /// </summary>
         public int Count => Ids.Count;
-        
+
         /// <summary>
         /// Gets the documents as a list of ChromaDocument objects
         /// </summary>
@@ -103,7 +103,7 @@ namespace ChromaDB.NET
         public List<ChromaDocument> ToDocuments()
         {
             var results = new List<ChromaDocument>();
-            
+
             for (int i = 0; i < Ids.Count; i++)
             {
                 var doc = new ChromaDocument
@@ -112,13 +112,13 @@ namespace ChromaDB.NET
                     Text = i < Documents.Count ? Documents[i] : null,
                     Metadata = i < Metadatas.Count ? Metadatas[i] : null
                 };
-                
+
                 results.Add(doc);
             }
-            
+
             return results;
         }
-        
+
         /// <summary>
         /// Gets the first document from the results
         /// </summary>
@@ -127,7 +127,7 @@ namespace ChromaDB.NET
         {
             if (Ids.Count == 0)
                 return null;
-                
+
             return new ChromaDocument
             {
                 Id = Ids[0],
@@ -136,19 +136,19 @@ namespace ChromaDB.NET
             };
         }
     }
-    
+
     /// <summary>
     /// A builder class for filters in ChromaDB
     /// </summary>
     public class WhereFilter
     {
         private readonly Dictionary<string, object> _filter = new Dictionary<string, object>();
-        
+
         /// <summary>
         /// Creates a new filter
         /// </summary>
         public WhereFilter() { }
-        
+
         /// <summary>
         /// Adds an equals condition to the filter
         /// </summary>
@@ -160,7 +160,7 @@ namespace ChromaDB.NET
             _filter[field] = value;
             return this;
         }
-        
+
         /// <summary>
         /// Adds an $in condition to the filter
         /// </summary>
@@ -175,7 +175,7 @@ namespace ChromaDB.NET
             };
             return this;
         }
-        
+
         /// <summary>
         /// Adds a $nin (not in) condition to the filter
         /// </summary>
@@ -190,7 +190,7 @@ namespace ChromaDB.NET
             };
             return this;
         }
-        
+
         /// <summary>
         /// Adds a $gt (greater than) condition to the filter
         /// </summary>
@@ -205,7 +205,7 @@ namespace ChromaDB.NET
             };
             return this;
         }
-        
+
         /// <summary>
         /// Adds a $gte (greater than or equal) condition to the filter
         /// </summary>
@@ -220,7 +220,7 @@ namespace ChromaDB.NET
             };
             return this;
         }
-        
+
         /// <summary>
         /// Adds a $lt (less than) condition to the filter
         /// </summary>
@@ -235,7 +235,7 @@ namespace ChromaDB.NET
             };
             return this;
         }
-        
+
         /// <summary>
         /// Adds a $lte (less than or equal) condition to the filter
         /// </summary>
@@ -250,12 +250,12 @@ namespace ChromaDB.NET
             };
             return this;
         }
-        
+
         /// <summary>
         /// Converts this filter to a dictionary
         /// </summary>
         public Dictionary<string, object> ToDictionary() => new Dictionary<string, object>(_filter);
-        
+
         /// <summary>
         /// Implicitly converts a WhereFilter to a Dictionary
         /// </summary>
@@ -288,18 +288,22 @@ namespace ChromaDB.NET
         private const string DllName = "chroma_csharp";
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int chroma_free_error(IntPtr error);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_create_client(
             [MarshalAs(UnmanagedType.I1)] bool allowReset,
             IntPtr sqliteConfigPtr,
             UIntPtr hnswCacheSize,
             [MarshalAs(UnmanagedType.LPStr)] string persistPath,
-            out IntPtr clientHandle);
+            out IntPtr clientHandle,
+            out IntPtr error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int chroma_destroy_client(IntPtr clientHandle);
+        public static extern int chroma_destroy_client(IntPtr clientHandle, out IntPtr error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int chroma_heartbeat(IntPtr clientHandle, out ulong result);
+        public static extern int chroma_heartbeat(IntPtr clientHandle, out ulong result, out IntPtr error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_create_collection(
@@ -310,7 +314,8 @@ namespace ChromaDB.NET
             [MarshalAs(UnmanagedType.I1)] bool getOrCreate,
             [MarshalAs(UnmanagedType.LPStr)] string tenant,
             [MarshalAs(UnmanagedType.LPStr)] string database,
-            out IntPtr collectionHandle);
+            out IntPtr collectionHandle,
+            out IntPtr error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_get_collection(
@@ -318,10 +323,11 @@ namespace ChromaDB.NET
             [MarshalAs(UnmanagedType.LPStr)] string name,
             [MarshalAs(UnmanagedType.LPStr)] string tenant,
             [MarshalAs(UnmanagedType.LPStr)] string database,
-            out IntPtr collectionHandle);
+            out IntPtr collectionHandle,
+            out IntPtr error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int chroma_destroy_collection(IntPtr collectionHandle);
+        public static extern int chroma_destroy_collection(IntPtr collectionHandle, out IntPtr error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_add(
@@ -332,7 +338,8 @@ namespace ChromaDB.NET
             IntPtr embeddings,
             UIntPtr embeddingDim,
             IntPtr metadatasJson,
-            IntPtr documents);
+            IntPtr documents,
+            out IntPtr error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_query(
@@ -354,13 +361,13 @@ namespace ChromaDB.NET
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_free_string(IntPtr str);
-        
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_count(
             IntPtr clientHandle,
             IntPtr collectionHandle,
             out uint result);
-            
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_update(
             IntPtr clientHandle,
@@ -371,7 +378,7 @@ namespace ChromaDB.NET
             UIntPtr embeddingDim,
             IntPtr metadatasJson,
             IntPtr documents);
-            
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_upsert(
             IntPtr clientHandle,
@@ -382,7 +389,7 @@ namespace ChromaDB.NET
             UIntPtr embeddingDim,
             IntPtr metadatasJson,
             IntPtr documents);
-            
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_delete(
             IntPtr clientHandle,
@@ -391,7 +398,7 @@ namespace ChromaDB.NET
             UIntPtr idsCount,
             [MarshalAs(UnmanagedType.LPStr)] string whereFilterJson,
             [MarshalAs(UnmanagedType.LPStr)] string whereDocumentFilter);
-            
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_get(
             IntPtr clientHandle,
@@ -406,25 +413,113 @@ namespace ChromaDB.NET
             [MarshalAs(UnmanagedType.I1)] bool includeMetadatas,
             [MarshalAs(UnmanagedType.I1)] bool includeDocuments,
             out IntPtr result);
-            
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_create_database(
             IntPtr clientHandle,
             [MarshalAs(UnmanagedType.LPStr)] string name,
-            [MarshalAs(UnmanagedType.LPStr)] string tenant);
-            
+            [MarshalAs(UnmanagedType.LPStr)] string tenant,
+            out IntPtr error);
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_get_database(
             IntPtr clientHandle,
             [MarshalAs(UnmanagedType.LPStr)] string name,
             [MarshalAs(UnmanagedType.LPStr)] string tenant,
-            out IntPtr idResult);
-            
+            out IntPtr idResult,
+            out IntPtr error);
+
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int chroma_delete_database(
             IntPtr clientHandle,
             [MarshalAs(UnmanagedType.LPStr)] string name,
-            [MarshalAs(UnmanagedType.LPStr)] string tenant);
+            [MarshalAs(UnmanagedType.LPStr)] string tenant,
+            out IntPtr error);
+    }
+
+    /// <summary>
+    /// Error codes for ChromaDB operations
+    /// </summary>
+    public enum ChromaErrorCode
+    {
+        /// <summary>Operation completed successfully</summary>
+        Success = 0,
+
+        /// <summary>Invalid argument provided</summary>
+        InvalidArgument = 1,
+
+        /// <summary>Internal error occurred</summary>
+        InternalError = 2,
+
+        /// <summary>Memory allocation error</summary>
+        MemoryError = 3,
+
+        /// <summary>Resource not found</summary>
+        NotFound = 4,
+
+        /// <summary>Validation error</summary>
+        ValidationError = 5,
+
+        /// <summary>Invalid UUID</summary>
+        InvalidUuid = 6,
+
+        /// <summary>Operation not implemented</summary>
+        NotImplemented = 7
+    }
+
+    /// <summary>
+    /// Native representation of a ChromaDB error
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct ChromaErrorNative
+    {
+        public ChromaErrorCode Code;
+        public IntPtr Message;
+        public IntPtr Source;
+        public IntPtr Details;
+    }
+
+    /// <summary>
+    /// Detailed error information for ChromaDB operations
+    /// </summary>
+    public class ChromaErrorInfo
+    {
+        /// <summary>Error code</summary>
+        public ChromaErrorCode Code { get; }
+
+        /// <summary>Error message</summary>
+        public string Message { get; }
+
+        /// <summary>Source of the error (function name)</summary>
+        public string Source { get; }
+
+        /// <summary>Additional error details</summary>
+        public string Details { get; }
+
+        internal ChromaErrorInfo(ChromaErrorCode code, string message, string source, string details)
+        {
+            Code = code;
+            Message = message ?? string.Empty;
+            Source = source ?? string.Empty;
+            Details = details ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the error
+        /// </summary>
+        public override string ToString()
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.Append($"[{Code}] {Message}");
+
+            if (!string.IsNullOrEmpty(Source))
+                builder.Append($" (in {Source})");
+
+            if (!string.IsNullOrEmpty(Details))
+                builder.Append($"\nDetails: {Details}");
+
+            return builder.ToString();
+        }
     }
 
     /// <summary>
@@ -432,7 +527,40 @@ namespace ChromaDB.NET
     /// </summary>
     public class ChromaException : Exception
     {
-        public ChromaException(string message) : base(message) { }
+        /// <summary>
+        /// Detailed error information
+        /// </summary>
+        public ChromaErrorInfo ErrorInfo { get; }
+
+        /// <summary>
+        /// Creates a new ChromaException with the specified message
+        /// </summary>
+        /// <param name="message">Error message</param>
+        public ChromaException(string message) : base(message)
+        {
+            ErrorInfo = new ChromaErrorInfo(ChromaErrorCode.InternalError, message, null, null);
+        }
+
+        /// <summary>
+        /// Creates a new ChromaException with the specified error information
+        /// </summary>
+        /// <param name="errorInfo">Detailed error information</param>
+        public ChromaException(ChromaErrorInfo errorInfo)
+            : base(errorInfo.ToString())
+        {
+            ErrorInfo = errorInfo;
+        }
+
+        /// <summary>
+        /// Creates a new ChromaException with the specified error code and message
+        /// </summary>
+        /// <param name="code">Error code</param>
+        /// <param name="message">Error message</param>
+        public ChromaException(ChromaErrorCode code, string message)
+            : base(message)
+        {
+            ErrorInfo = new ChromaErrorInfo(code, message, null, null);
+        }
     }
 
     /// <summary>
@@ -444,6 +572,51 @@ namespace ChromaDB.NET
         private bool _disposed = false;
 
         /// <summary>
+        /// Helper method to marshal a native ChromaError to a managed ChromaErrorInfo
+        /// </summary>
+        internal static ChromaErrorInfo MarshalError(IntPtr errorPtr)
+        {
+            if (errorPtr == IntPtr.Zero)
+                return new ChromaErrorInfo(ChromaErrorCode.InternalError, "Unknown error", null, null);
+
+            var nativeError = Marshal.PtrToStructure<ChromaErrorNative>(errorPtr);
+
+            string message = null;
+            if (nativeError.Message != IntPtr.Zero)
+                message = Marshal.PtrToStringAnsi(nativeError.Message);
+
+            string source = null;
+            if (nativeError.Source != IntPtr.Zero)
+                source = Marshal.PtrToStringAnsi(nativeError.Source);
+
+            string details = null;
+            if (nativeError.Details != IntPtr.Zero)
+                details = Marshal.PtrToStringAnsi(nativeError.Details);
+
+            return new ChromaErrorInfo(nativeError.Code, message, source, details);
+        }
+
+        /// <summary>
+        /// Helper method to check for errors and throw exceptions if needed
+        /// </summary>
+        internal static void CheckError(int errorCode, IntPtr errorPtr)
+        {
+            if (errorCode == 0) // Success
+                return;
+
+            try
+            {
+                var errorInfo = MarshalError(errorPtr);
+                throw new ChromaException(errorInfo);
+            }
+            finally
+            {
+                if (errorPtr != IntPtr.Zero)
+                    NativeMethods.chroma_free_error(errorPtr);
+            }
+        }
+
+        /// <summary>
         /// Creates a new ChromaDB client
         /// </summary>
         /// <param name="persistDirectory">Directory for persisting data</param>
@@ -451,14 +624,14 @@ namespace ChromaDB.NET
         public ChromaClient(string persistDirectory = null, int hnswCacheSize = 1000)
         {
             var result = NativeMethods.chroma_create_client(
-                false, 
-                IntPtr.Zero, 
-                (UIntPtr)hnswCacheSize, 
-                persistDirectory, 
-                out _handle);
-            
-            if (result != 0)
-                throw new ChromaException($"Failed to create ChromaDB client: {result}");
+                false,
+                IntPtr.Zero,
+                (UIntPtr)hnswCacheSize,
+                persistDirectory,
+                out _handle,
+                out var errorPtr);
+
+            CheckError(result, errorPtr);
         }
 
         /// <summary>
@@ -472,7 +645,7 @@ namespace ChromaDB.NET
         {
             return CreateOrGetCollection(name, false, embeddingFunction, metadata);
         }
-        
+
         /// <summary>
         /// Creates a new collection or gets an existing one
         /// </summary>
@@ -484,7 +657,7 @@ namespace ChromaDB.NET
         {
             return CreateOrGetCollection(name, true, embeddingFunction, metadata);
         }
-        
+
         /// <summary>
         /// Creates a new collection or gets an existing one
         /// </summary>
@@ -498,28 +671,27 @@ namespace ChromaDB.NET
             string configJson = null;
             if (embeddingFunction != null)
             {
-                var config = new Dictionary<string, object>
-                {
-                    ["embedding_function"] = embeddingFunction.Configuration
-                };
-                configJson = JsonSerializer.Serialize(config);
+                // The Rust core expects the configuration JSON to directly represent
+                // the embedding function's config, including its 'type'.
+                // We should serialize the Configuration object directly, not wrap it.
+                configJson = JsonSerializer.Serialize(embeddingFunction.Configuration);
             }
-            
+
             string metadataJson = metadata != null ? JsonSerializer.Serialize(metadata) : null;
-            
+
             var result = NativeMethods.chroma_create_collection(
-                _handle, 
-                name, 
-                configJson, 
-                metadataJson, 
-                getOrCreate, 
-                null, 
-                null, 
-                out var collectionHandle);
-                
-            if (result != 0)
-                throw new ChromaException($"Failed to create collection: {result}");
-                
+                _handle,
+                name,
+                configJson, // Pass the direct configuration JSON
+                metadataJson,
+                getOrCreate,
+                null,
+                null,
+                out var collectionHandle,
+                out var errorPtr);
+
+            CheckError(result, errorPtr);
+
             return new Collection(this, collectionHandle, embeddingFunction);
         }
 
@@ -532,18 +704,18 @@ namespace ChromaDB.NET
         public Collection GetCollection(string name, IEmbeddingFunction embeddingFunction = null)
         {
             var result = NativeMethods.chroma_get_collection(
-                _handle, 
-                name, 
-                null, 
-                null, 
-                out var collectionHandle);
-                
-            if (result != 0)
-                throw new ChromaException($"Failed to get collection: {result}");
-                
+                _handle,
+                name,
+                null,
+                null,
+                out var collectionHandle,
+                out var errorPtr);
+
+            CheckError(result, errorPtr);
+
             return new Collection(this, collectionHandle, embeddingFunction);
         }
-        
+
         /// <summary>
         /// Gets or creates a collection with the specified name
         /// </summary>
@@ -569,14 +741,13 @@ namespace ChromaDB.NET
         /// <returns>Current timestamp</returns>
         public ulong Heartbeat()
         {
-            var result = NativeMethods.chroma_heartbeat(_handle, out var timestamp);
-            
-            if (result != 0)
-                throw new ChromaException($"Failed to get heartbeat: {result}");
-                
+            var result = NativeMethods.chroma_heartbeat(_handle, out var timestamp, out var errorPtr);
+
+            CheckError(result, errorPtr);
+
             return timestamp;
         }
-        
+
         /// <summary>
         /// Creates a database in ChromaDB
         /// </summary>
@@ -587,12 +758,12 @@ namespace ChromaDB.NET
             var result = NativeMethods.chroma_create_database(
                 _handle,
                 name,
-                tenant);
-                
-            if (result != 0)
-                throw new ChromaException($"Failed to create database: {result}");
+                tenant,
+                out var errorPtr);
+
+            CheckError(result, errorPtr);
         }
-        
+
         /// <summary>
         /// Gets a database ID
         /// </summary>
@@ -605,11 +776,11 @@ namespace ChromaDB.NET
                 _handle,
                 name,
                 tenant,
-                out var idPtr);
-                
-            if (result != 0)
-                throw new ChromaException($"Failed to get database: {result}");
-                
+                out var idPtr,
+                out var errorPtr);
+
+            CheckError(result, errorPtr);
+
             try
             {
                 return Marshal.PtrToStringAnsi(idPtr);
@@ -619,7 +790,7 @@ namespace ChromaDB.NET
                 NativeMethods.chroma_free_string(idPtr);
             }
         }
-        
+
         /// <summary>
         /// Deletes a database
         /// </summary>
@@ -630,10 +801,10 @@ namespace ChromaDB.NET
             var result = NativeMethods.chroma_delete_database(
                 _handle,
                 name,
-                tenant);
-                
-            if (result != 0)
-                throw new ChromaException($"Failed to delete database: {result}");
+                tenant,
+                out var errorPtr);
+
+            CheckError(result, errorPtr);
         }
 
         /// <summary>
@@ -654,7 +825,22 @@ namespace ChromaDB.NET
             {
                 if (_handle != IntPtr.Zero)
                 {
-                    NativeMethods.chroma_destroy_client(_handle);
+                    var result = NativeMethods.chroma_destroy_client(_handle, out var errorPtr);
+
+                    // We don't throw exceptions in Dispose, but we should at least log any errors
+                    if (result != 0 && errorPtr != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            var errorInfo = MarshalError(errorPtr);
+                            Console.Error.WriteLine($"Error disposing ChromaClient: {errorInfo}");
+                        }
+                        finally
+                        {
+                            NativeMethods.chroma_free_error(errorPtr);
+                        }
+                    }
+
                     _handle = IntPtr.Zero;
                 }
                 _disposed = true;
@@ -702,10 +888,10 @@ namespace ChromaDB.NET
                 _client.Handle,
                 _handle,
                 out uint count);
-                
+
             if (result != 0)
                 throw new ChromaException($"Failed to get count: {result}");
-                
+
             return count;
         }
 
@@ -718,44 +904,44 @@ namespace ChromaDB.NET
             var docs = documents.ToList();
             if (docs.Count == 0)
                 return;
-                
+
             // Generate embeddings if needed
             if (_embeddingFunction != null)
             {
                 var textsToEmbed = docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text))
                     .Select(d => d.Text)
                     .ToList();
-                    
+
                 if (textsToEmbed.Count > 0)
                 {
                     var embeddings = _embeddingFunction.GenerateEmbeddings(textsToEmbed);
                     int index = 0;
-                    
+
                     foreach (var doc in docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text)))
                     {
                         doc.Embedding = embeddings[index++];
                     }
                 }
             }
-            
+
             // Marshal IDs
             var ids = docs.Select(d => d.Id).ToArray();
             var idsPtr = MarshalStringArray(ids);
-            
+
             // Marshal embeddings
             var embeddingDim = docs[0].Embedding.Length;
             var embeddingsPtr = MarshalEmbeddings(docs.Select(d => d.Embedding).ToArray());
-            
+
             // Marshal metadata
-            var metadataJsons = docs.Select(d => d.Metadata != null 
-                ? JsonSerializer.Serialize(d.Metadata) 
+            var metadataJsons = docs.Select(d => d.Metadata != null
+                ? JsonSerializer.Serialize(d.Metadata)
                 : null).ToArray();
             var metadataPtr = MarshalStringArray(metadataJsons);
-            
+
             // Marshal documents
             var texts = docs.Select(d => d.Text).ToArray();
             var textsPtr = MarshalStringArray(texts);
-            
+
             try
             {
                 var result = NativeMethods.chroma_add(
@@ -766,10 +952,10 @@ namespace ChromaDB.NET
                     embeddingsPtr,
                     (UIntPtr)embeddingDim,
                     metadataPtr,
-                    textsPtr);
-                    
-                if (result != 0)
-                    throw new ChromaException($"Failed to add documents: {result}");
+                    textsPtr,
+                    out var errorPtr);
+
+                ChromaClient.CheckError(result, errorPtr);
             }
             finally
             {
@@ -801,10 +987,10 @@ namespace ChromaDB.NET
             bool includeDistances = true)
         {
             var whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter) : null;
-            
+
             var embeddingPtr = Marshal.AllocHGlobal(queryEmbedding.Length * sizeof(float));
             Marshal.Copy(queryEmbedding, 0, embeddingPtr, queryEmbedding.Length);
-            
+
             try
             {
                 var result = NativeMethods.chroma_query(
@@ -820,10 +1006,10 @@ namespace ChromaDB.NET
                     includeDocuments,
                     includeDistances,
                     out var queryResultPtr);
-                    
+
                 if (result != 0)
                     throw new ChromaException($"Failed to query: {result}");
-                    
+
                 try
                 {
                     return MarshalQueryResult(queryResultPtr);
@@ -861,9 +1047,9 @@ namespace ChromaDB.NET
         {
             if (_embeddingFunction == null)
                 throw new ChromaException("Cannot query by text without an embedding function");
-                
+
             var queryEmbedding = _embeddingFunction.GenerateEmbeddings(new[] { queryText })[0];
-            
+
             return Query(
                 queryEmbedding,
                 nResults,
@@ -873,7 +1059,7 @@ namespace ChromaDB.NET
                 includeDocuments,
                 includeDistances);
         }
-        
+
         /// <summary>
         /// Updates existing documents in the collection
         /// </summary>
@@ -883,49 +1069,49 @@ namespace ChromaDB.NET
             var docs = documents.ToList();
             if (docs.Count == 0)
                 return;
-                
+
             // Generate embeddings if needed
             if (_embeddingFunction != null)
             {
                 var textsToEmbed = docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text))
                     .Select(d => d.Text)
                     .ToList();
-                    
+
                 if (textsToEmbed.Count > 0)
                 {
                     var embeddings = _embeddingFunction.GenerateEmbeddings(textsToEmbed);
                     int index = 0;
-                    
+
                     foreach (var doc in docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text)))
                     {
                         doc.Embedding = embeddings[index++];
                     }
                 }
             }
-            
+
             // Marshal IDs
             var ids = docs.Select(d => d.Id).ToArray();
             var idsPtr = MarshalStringArray(ids);
-            
+
             // Marshal embeddings
             var embeddingDim = docs[0].Embedding != null ? docs[0].Embedding.Length : 0;
             var embeddingsPtr = IntPtr.Zero;
-            
+
             if (embeddingDim > 0)
             {
                 embeddingsPtr = MarshalEmbeddings(docs.Select(d => d.Embedding).ToArray());
             }
-            
+
             // Marshal metadata
-            var metadataJsons = docs.Select(d => d.Metadata != null 
-                ? JsonSerializer.Serialize(d.Metadata) 
+            var metadataJsons = docs.Select(d => d.Metadata != null
+                ? JsonSerializer.Serialize(d.Metadata)
                 : null).ToArray();
             var metadataPtr = MarshalStringArray(metadataJsons);
-            
+
             // Marshal documents
             var texts = docs.Select(d => d.Text).ToArray();
             var textsPtr = MarshalStringArray(texts);
-            
+
             try
             {
                 var result = NativeMethods.chroma_update(
@@ -937,9 +1123,14 @@ namespace ChromaDB.NET
                     (UIntPtr)embeddingDim,
                     metadataPtr,
                     textsPtr);
-                    
+
                 if (result != 0)
                     throw new ChromaException($"Failed to update documents: {result}");
+            }
+            catch (ChromaException ex)
+            {
+                // Handle specific update errors if needed
+                throw new ChromaException($"Failed to update documents: {ex.Message}");
             }
             finally
             {
@@ -950,7 +1141,7 @@ namespace ChromaDB.NET
                     FreeEmbeddings(embeddingsPtr, docs.Count);
             }
         }
-        
+
         /// <summary>
         /// Upserts documents (insert if not present, update if present)
         /// </summary>
@@ -960,44 +1151,44 @@ namespace ChromaDB.NET
             var docs = documents.ToList();
             if (docs.Count == 0)
                 return;
-                
+
             // Generate embeddings if needed
             if (_embeddingFunction != null)
             {
                 var textsToEmbed = docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text))
                     .Select(d => d.Text)
                     .ToList();
-                    
+
                 if (textsToEmbed.Count > 0)
                 {
                     var embeddings = _embeddingFunction.GenerateEmbeddings(textsToEmbed);
                     int index = 0;
-                    
+
                     foreach (var doc in docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text)))
                     {
                         doc.Embedding = embeddings[index++];
                     }
                 }
             }
-            
+
             // Marshal IDs
             var ids = docs.Select(d => d.Id).ToArray();
             var idsPtr = MarshalStringArray(ids);
-            
+
             // Marshal embeddings
             var embeddingDim = docs[0].Embedding.Length;
             var embeddingsPtr = MarshalEmbeddings(docs.Select(d => d.Embedding).ToArray());
-            
+
             // Marshal metadata
-            var metadataJsons = docs.Select(d => d.Metadata != null 
-                ? JsonSerializer.Serialize(d.Metadata) 
+            var metadataJsons = docs.Select(d => d.Metadata != null
+                ? JsonSerializer.Serialize(d.Metadata)
                 : null).ToArray();
             var metadataPtr = MarshalStringArray(metadataJsons);
-            
+
             // Marshal documents
             var texts = docs.Select(d => d.Text).ToArray();
             var textsPtr = MarshalStringArray(texts);
-            
+
             try
             {
                 var result = NativeMethods.chroma_upsert(
@@ -1009,7 +1200,7 @@ namespace ChromaDB.NET
                     (UIntPtr)embeddingDim,
                     metadataPtr,
                     textsPtr);
-                    
+
                 if (result != 0)
                     throw new ChromaException($"Failed to upsert documents: {result}");
             }
@@ -1021,7 +1212,7 @@ namespace ChromaDB.NET
                 FreeEmbeddings(embeddingsPtr, docs.Count);
             }
         }
-        
+
         /// <summary>
         /// Deletes documents from the collection
         /// </summary>
@@ -1036,11 +1227,11 @@ namespace ChromaDB.NET
             // At least one of the parameters must be provided
             if (ids == null && whereFilter == null && whereDocument == null)
                 throw new ArgumentException("You must provide at least one of: ids, whereFilter, or whereDocument");
-                
+
             // Marshal IDs
             IntPtr idsPtr = IntPtr.Zero;
             UIntPtr idsCount = UIntPtr.Zero;
-            
+
             if (ids != null)
             {
                 var idsList = ids.ToList();
@@ -1050,10 +1241,10 @@ namespace ChromaDB.NET
                     idsCount = (UIntPtr)idsList.Count;
                 }
             }
-            
+
             // Convert whereFilter to JSON
             string whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter) : null;
-            
+
             try
             {
                 var result = NativeMethods.chroma_delete(
@@ -1063,7 +1254,7 @@ namespace ChromaDB.NET
                     idsCount,
                     whereFilterJson,
                     whereDocument);
-                    
+
                 if (result != 0)
                     throw new ChromaException($"Failed to delete documents: {result}");
             }
@@ -1075,7 +1266,7 @@ namespace ChromaDB.NET
                 }
             }
         }
-        
+
         /// <summary>
         /// Gets documents from the collection
         /// </summary>
@@ -1101,7 +1292,7 @@ namespace ChromaDB.NET
             // Marshal IDs
             IntPtr idsPtr = IntPtr.Zero;
             UIntPtr idsCount = UIntPtr.Zero;
-            
+
             if (ids != null)
             {
                 var idsList = ids.ToList();
@@ -1111,10 +1302,10 @@ namespace ChromaDB.NET
                     idsCount = (UIntPtr)idsList.Count;
                 }
             }
-            
+
             // Convert whereFilter to JSON
             string whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter) : null;
-            
+
             try
             {
                 var result = NativeMethods.chroma_get(
@@ -1130,10 +1321,10 @@ namespace ChromaDB.NET
                     includeMetadatas,
                     includeDocuments,
                     out var queryResultPtr);
-                    
+
                 if (result != 0)
                     throw new ChromaException($"Failed to get documents: {result}");
-                    
+
                 try
                 {
                     return MarshalQueryResult(queryResultPtr);
@@ -1151,7 +1342,7 @@ namespace ChromaDB.NET
                 }
             }
         }
-        
+
         /// <summary>
         /// Gets a document by ID
         /// </summary>
@@ -1167,7 +1358,7 @@ namespace ChromaDB.NET
                 includeDocuments: true
             ).FirstOrDefault();
         }
-        
+
         /// <summary>
         /// Gets documents matching the specified filter
         /// </summary>
@@ -1185,7 +1376,7 @@ namespace ChromaDB.NET
                 includeEmbeddings: includeEmbeddings
             );
         }
-        
+
         /// <summary>
         /// Gets documents matching the specified filter
         /// </summary>
@@ -1200,7 +1391,7 @@ namespace ChromaDB.NET
             var filter = new WhereFilter().Equals(field, value);
             return Where(filter, limit, offset, includeEmbeddings);
         }
-        
+
         /// <summary>
         /// Executes a semantic search using text
         /// </summary>
@@ -1216,7 +1407,7 @@ namespace ChromaDB.NET
                 whereFilter: filter?.ToDictionary()
             );
         }
-        
+
         /// <summary>
         /// Executes a semantic search with filtering
         /// </summary>
@@ -1230,7 +1421,7 @@ namespace ChromaDB.NET
             var filter = new WhereFilter().Equals(field, value);
             return Search(text, limit, filter);
         }
-        
+
         /// <summary>
         /// Adds a single document to the collection
         /// </summary>
@@ -1239,7 +1430,7 @@ namespace ChromaDB.NET
         {
             Add(new[] { document });
         }
-        
+
         /// <summary>
         /// Adds a document to the collection
         /// </summary>
@@ -1250,7 +1441,7 @@ namespace ChromaDB.NET
         {
             Add(ChromaDocument.Create(id, text, metadata));
         }
-        
+
         /// <summary>
         /// Updates a single document in the collection
         /// </summary>
@@ -1259,7 +1450,7 @@ namespace ChromaDB.NET
         {
             Update(new[] { document });
         }
-        
+
         /// <summary>
         /// Updates a document in the collection
         /// </summary>
@@ -1270,7 +1461,7 @@ namespace ChromaDB.NET
         {
             Update(ChromaDocument.Create(id, text, metadata));
         }
-        
+
         /// <summary>
         /// Upserts a single document in the collection
         /// </summary>
@@ -1279,7 +1470,7 @@ namespace ChromaDB.NET
         {
             Upsert(new[] { document });
         }
-        
+
         /// <summary>
         /// Upserts a document in the collection
         /// </summary>
@@ -1290,7 +1481,7 @@ namespace ChromaDB.NET
         {
             Upsert(ChromaDocument.Create(id, text, metadata));
         }
-        
+
         /// <summary>
         /// Deletes a document by ID
         /// </summary>
@@ -1318,7 +1509,22 @@ namespace ChromaDB.NET
             {
                 if (_handle != IntPtr.Zero)
                 {
-                    NativeMethods.chroma_destroy_collection(_handle);
+                    var result = NativeMethods.chroma_destroy_collection(_handle, out var errorPtr);
+
+                    // We don't throw exceptions in Dispose, but we should at least log any errors
+                    if (result != 0 && errorPtr != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            var errorInfo = ChromaClient.MarshalError(errorPtr);
+                            Console.Error.WriteLine($"Error disposing ChromaCollection: {errorInfo}");
+                        }
+                        finally
+                        {
+                            NativeMethods.chroma_free_error(errorPtr);
+                        }
+                    }
+
                     _handle = IntPtr.Zero;
                 }
                 _disposed = true;
@@ -1343,14 +1549,14 @@ namespace ChromaDB.NET
             var ptrs = new IntPtr[strings.Length];
             for (int i = 0; i < strings.Length; i++)
             {
-                ptrs[i] = strings[i] != null 
-                    ? Marshal.StringToHGlobalAnsi(strings[i]) 
+                ptrs[i] = strings[i] != null
+                    ? Marshal.StringToHGlobalAnsi(strings[i])
                     : IntPtr.Zero;
             }
 
             var arrayPtr = Marshal.AllocHGlobal(IntPtr.Size * strings.Length);
             Marshal.Copy(ptrs, 0, arrayPtr, strings.Length);
-            
+
             return arrayPtr;
         }
 
@@ -1361,13 +1567,13 @@ namespace ChromaDB.NET
 
             var ptrs = new IntPtr[length];
             Marshal.Copy(arrayPtr, ptrs, 0, length);
-            
+
             for (int i = 0; i < length; i++)
             {
                 if (ptrs[i] != IntPtr.Zero)
                     Marshal.FreeHGlobal(ptrs[i]);
             }
-            
+
             Marshal.FreeHGlobal(arrayPtr);
         }
 
@@ -1393,7 +1599,7 @@ namespace ChromaDB.NET
 
             var arrayPtr = Marshal.AllocHGlobal(IntPtr.Size * embeddings.Length);
             Marshal.Copy(ptrs, 0, arrayPtr, embeddings.Length);
-            
+
             return arrayPtr;
         }
 
@@ -1404,13 +1610,13 @@ namespace ChromaDB.NET
 
             var ptrs = new IntPtr[length];
             Marshal.Copy(arrayPtr, ptrs, 0, length);
-            
+
             for (int i = 0; i < length; i++)
             {
                 if (ptrs[i] != IntPtr.Zero)
                     Marshal.FreeHGlobal(ptrs[i]);
             }
-            
+
             Marshal.FreeHGlobal(arrayPtr);
         }
 
@@ -1441,7 +1647,7 @@ namespace ChromaDB.NET
                 var count = (int)nativeResult.IdsCount.ToUInt64();
                 var idsPtrs = new IntPtr[count];
                 Marshal.Copy(nativeResult.Ids, idsPtrs, 0, count);
-                
+
                 for (int i = 0; i < count; i++)
                 {
                     if (idsPtrs[i] != IntPtr.Zero)
@@ -1471,7 +1677,7 @@ namespace ChromaDB.NET
                 var count = (int)nativeResult.MetadataCount.ToUInt64();
                 var metadataPtrs = new IntPtr[count];
                 Marshal.Copy(nativeResult.MetadataJson, metadataPtrs, 0, count);
-                
+
                 for (int i = 0; i < count; i++)
                 {
                     if (metadataPtrs[i] != IntPtr.Zero)
@@ -1507,7 +1713,7 @@ namespace ChromaDB.NET
                 var count = (int)nativeResult.DocumentsCount.ToUInt64();
                 var documentPtrs = new IntPtr[count];
                 Marshal.Copy(nativeResult.Documents, documentPtrs, 0, count);
-                
+
                 for (int i = 0; i < count; i++)
                 {
                     if (documentPtrs[i] != IntPtr.Zero)

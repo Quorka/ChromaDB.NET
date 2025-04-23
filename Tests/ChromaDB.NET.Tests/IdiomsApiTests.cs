@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ChromaDB.NET.Tests
@@ -27,12 +28,16 @@ namespace ChromaDB.NET.Tests
             {
                 if (Directory.Exists(_testDir))
                 {
+                    // Add a small delay to allow file handles to be released
+                    System.Threading.Thread.Sleep(100); // e.g., 100ms, adjust if needed
                     Directory.Delete(_testDir, true);
+                    Console.WriteLine($"Cleaned up test directory: {_testDir}");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore cleanup errors
+                // Log the error instead of ignoring it
+                Console.WriteLine($"Error cleaning up test directory '{_testDir}': {ex.Message}");
             }
         }
 
@@ -64,12 +69,13 @@ namespace ChromaDB.NET.Tests
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
 
-            // First create a new collection
-            using var collection1 = client.GetOrCreateCollection("test-collection", _embeddingFunction);
+            // First create a new collection with unique name
+            string collectionName1 = $"test-collection-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            using var collection1 = client.GetOrCreateCollection(collectionName1, _embeddingFunction);
             Assert.IsNotNull(collection1);
 
             // Now get the existing collection
-            using var collection2 = client.GetOrCreateCollection("test-collection", _embeddingFunction);
+            using var collection2 = client.GetOrCreateCollection(collectionName1, _embeddingFunction);
             Assert.IsNotNull(collection2);
 
             // Both operations should succeed without throwing exceptions
@@ -79,7 +85,7 @@ namespace ChromaDB.NET.Tests
         public void Collection_SimpleAdd_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Test the simplified Add method
             collection.Add("doc1", "This is a test document",
@@ -96,7 +102,7 @@ namespace ChromaDB.NET.Tests
         public void Collection_SimpleUpdate_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add a document
             collection.Add("doc1", "This is a test document",
@@ -111,14 +117,14 @@ namespace ChromaDB.NET.Tests
             Assert.AreEqual(1, results.Ids.Count);
             Assert.AreEqual("doc1", results.Ids[0]);
             Assert.AreEqual("This is an updated document", results.Documents[0]);
-            Assert.AreEqual(2, results.Metadatas[0]["version"]);
+            Assert.AreEqual("2", results.Metadatas[0]["version"].ToString());
         }
 
         [TestMethod]
         public void Collection_SimpleUpsert_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add a document
             collection.Add("doc1", "This is a test document",
@@ -135,19 +141,19 @@ namespace ChromaDB.NET.Tests
             // Verify document 1 was updated
             var doc1 = collection.GetById("doc1");
             Assert.AreEqual("This is an upserted document", doc1.Text);
-            Assert.AreEqual(2, doc1.Metadata["version"]);
+            Assert.AreEqual(2, ((JsonElement)doc1.Metadata["version"]).GetInt32());
 
             // Verify document 2 was added
             var doc2 = collection.GetById("doc2");
             Assert.AreEqual("This is a new document", doc2.Text);
-            Assert.AreEqual(1, doc2.Metadata["version"]);
+            Assert.AreEqual(1, ((JsonElement)doc2.Metadata["version"]).GetInt32());
         }
 
         [TestMethod]
         public void Collection_GetById_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add a document
             collection.Add("doc1", "This is a test document",
@@ -160,14 +166,14 @@ namespace ChromaDB.NET.Tests
             Assert.IsNotNull(doc);
             Assert.AreEqual("doc1", doc.Id);
             Assert.AreEqual("This is a test document", doc.Text);
-            Assert.AreEqual("test", doc.Metadata["source"]);
+            Assert.AreEqual("test", ((JsonElement)doc.Metadata["source"]).GetString());
         }
 
         [TestMethod]
         public void Collection_Delete_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add documents
             collection.Add("doc1", "Document 1", new Dictionary<string, object> { ["source"] = "test" });
@@ -191,7 +197,7 @@ namespace ChromaDB.NET.Tests
         public void Collection_Count_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Initially empty
             Assert.AreEqual<uint>(0, collection.Count());
@@ -213,7 +219,7 @@ namespace ChromaDB.NET.Tests
         public void Collection_Search_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add documents
             collection.Add("doc1", "The quick brown fox jumps over the lazy dog",
@@ -233,7 +239,7 @@ namespace ChromaDB.NET.Tests
         public void Collection_Search_WithFilter_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add documents
             collection.Add("doc1", "The quick brown fox jumps over the lazy dog",
@@ -261,7 +267,7 @@ namespace ChromaDB.NET.Tests
         public void QueryResult_ToDocuments_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add documents
             collection.Add("doc1", "The quick brown fox",
@@ -279,7 +285,7 @@ namespace ChromaDB.NET.Tests
             Assert.AreEqual(2, documents.Count);
             Assert.AreEqual("doc1", documents[0].Id);
             Assert.AreEqual("The quick brown fox", documents[0].Text);
-            Assert.AreEqual("animals", documents[0].Metadata["category"]);
+            Assert.AreEqual("animals", ((JsonElement)documents[0].Metadata["category"]).GetString());
             Assert.AreEqual("doc2", documents[1].Id);
         }
 
@@ -287,7 +293,7 @@ namespace ChromaDB.NET.Tests
         public void QueryResult_FirstOrDefault_Success()
         {
             using var client = new ChromaClient(persistDirectory: _testDir);
-            using var collection = client.CreateCollection("test-collection", _embeddingFunction);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
 
             // Add documents
             collection.Add("doc1", "The quick brown fox",
@@ -303,7 +309,7 @@ namespace ChromaDB.NET.Tests
             Assert.IsNotNull(doc);
             Assert.AreEqual("doc1", doc.Id);
             Assert.AreEqual("The quick brown fox", doc.Text);
-            Assert.AreEqual("animals", doc.Metadata["category"]);
+            Assert.AreEqual("animals", ((JsonElement)doc.Metadata["category"]).GetString());
 
             // Test with empty results
             var emptyResults = collection.Get(ids: new[] { "non-existent" });

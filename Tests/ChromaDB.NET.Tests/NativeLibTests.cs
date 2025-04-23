@@ -127,7 +127,7 @@ namespace ChromaDB.NET.Tests
                     {
                         Console.WriteLine($"Trying name: '{name}'");
                         var embeddingFunction = new TestEmbeddingFunction(3);
-                        using var collection = client.CreateCollection(name, embeddingFunction);
+                        using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: embeddingFunction);
                         Console.WriteLine($"Collection created successfully with name: '{name}'");
                         break; // Stop on first success
                     }
