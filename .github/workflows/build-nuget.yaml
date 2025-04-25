@@ -19,42 +19,39 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_suffix: linux-x64
-            lib_name: libchroma_csharp.so # Corrected lib name
+            lib_name: libchroma_csharp.so
+            dll_search_name: chroma_csharp # For NativeMethods.cs loading
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_suffix: win-x64
-            lib_name: chroma_csharp.dll # Corrected lib name
+            lib_name: chroma_csharp.dll
+            dll_search_name: chroma_csharp # For NativeMethods.cs loading
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact_suffix: osx-x64
-            lib_name: libchroma_csharp.dylib # Corrected lib name
+            lib_name: libchroma_csharp.dylib
+            dll_search_name: chroma_csharp # For NativeMethods.cs loading
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        # Fetch chroma submodule if you switch to using submodules later
-        # submodules: 'recursive'
-        # Fetch all history for git dependencies (might be needed)
         fetch-depth: 0
 
     - name: Install Dependencies (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update -y
-        # Install protoc and SQLite dev libraries
         sudo apt-get install -y protobuf-compiler libsqlite3-dev
 
     - name: Install Dependencies (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        # Install protoc and SQLite via Homebrew
         brew install protobuf sqlite
 
     - name: Install Dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        # Install protoc and SQLite via Chocolatey (common on GH runners)
         choco install protoc SQLite --yes
         
     - name: Install Rust toolchain
@@ -65,86 +62,79 @@ jobs:
     - name: Setup Cache (Cargo registry, index, build)
       uses: Swatinem/rust-cache@v2
       with:
-        # Cache git dependencies based on Cargo.lock
         key: ${{ matrix.target }}
 
     - name: Build native library
       run: cargo build --release --target ${{ matrix.target }}
       env:
-        # Apply RUSTFLAGS only for the Windows MSVC target
         RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
-
-    - name: List target directory contents (Linux Debug)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        echo "Listing contents of target directory..."
-        ls -R target
-      shell: bash
 
     - name: Prepare artifact
       shell: bash
       run: |
         mkdir -p artifact/runtimes/${{ matrix.artifact_suffix }}/native/
         cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} artifact/runtimes/${{ matrix.artifact_suffix }}/native/
-        # Copy license file if needed in artifact
-        # cp LICENSE artifact/
 
-    # Set up .NET SDK for testing 
+    # Setup testing
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
         
-    # Create the runtimes directory in the project root for testing
+    # Create local runtime folders structure to ensure project builds correctly
     - name: Setup runtimes directory for testing
       shell: bash
       run: |
         mkdir -p runtimes/${{ matrix.artifact_suffix }}/native/
         cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} runtimes/${{ matrix.artifact_suffix }}/native/
 
-    # For Windows tests, we also need to copy the DLL to the root of the test bin directory
-    - name: Prepare Windows DLL
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        New-Item -ItemType Directory -Path "Tests\ChromaDB.NET.Tests\bin\Release\net8.0" -Force
-        Copy-Item "target\${{ matrix.target }}\release\${{ matrix.lib_name }}" -Destination "Tests\ChromaDB.NET.Tests\bin\Release\net8.0\"
-
-    # For macOS tests, copy dylib to the root of test bin directory
-    - name: Prepare macOS dylib
+    # Run CI tools to see what architecture is available
+    - name: Check environment (macOS)
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        mkdir -p Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
-        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
-        
-    # Build and run tests
+        echo "MacOS Architecture: $(uname -m)"
+        lipo -info target/${{ matrix.target }}/release/${{ matrix.lib_name }} || true
+        file target/${{ matrix.target }}/release/${{ matrix.lib_name }}
+
+    # Build tests with debug output for native loading
     - name: Build Tests
       run: dotnet build Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release
       
-    # Additional library copy after build to ensure the DLL is in the right place
-    - name: Additional native library copy (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Ensure DLL is in all possible locations .NET might look for it
-        Copy-Item "target\${{ matrix.target }}\release\${{ matrix.lib_name }}" -Destination "Tests\ChromaDB.NET.Tests\bin\Release\net8.0\"
-        Copy-Item "target\${{ matrix.target }}\release\${{ matrix.lib_name }}" -Destination "Tests\ChromaDB.NET.Tests\bin\Release\net8.0\runtimes\win-x64\native\"
-        
-    # Additional library copy for macOS
-    - name: Additional native library copy (macOS)
-      if: matrix.os == 'macos-latest'
+    # Prepare native libraries for test execution AFTER build
+    - name: Prepare libraries for tests
       shell: bash
       run: |
-        # Ensure dylib is in all possible locations .NET might look for it
-        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
-        mkdir -p Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/osx-x64/native/
-        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/osx-x64/native/
-      
+        TEST_OUTPUT_DIR="Tests/ChromaDB.NET.Tests/bin/Release/net8.0"
+        RUNTIME_DIR="$TEST_OUTPUT_DIR/runtimes/${{ matrix.artifact_suffix }}/native"
+        SOURCE_LIB="target/${{ matrix.target }}/release/${{ matrix.lib_name }}"
+
+        echo "Copying native library for testing..."
+        echo "Source: $SOURCE_LIB"
+        echo "Destination Dir: $RUNTIME_DIR"
+        
+        mkdir -p "$RUNTIME_DIR"
+        cp "$SOURCE_LIB" "$RUNTIME_DIR/"
+        
+        # Optional: Also copy to the root test output dir as a fallback (might be needed depending on loading specifics)
+        # echo "Copying native library to test output root as well..."
+        # cp "$SOURCE_LIB" "$TEST_OUTPUT_DIR/"
+
+        # Set executable permissions if needed (primarily for Linux/macOS)
+        if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
+          chmod +x "$RUNTIME_DIR/${{ matrix.lib_name }}"
+          # chmod +x "$TEST_OUTPUT_DIR/${{ matrix.lib_name }}" # If using the fallback copy
+        fi
+        
+        echo "Listing contents of $TEST_OUTPUT_DIR"
+        ls -R "$TEST_OUTPUT_DIR"
+
+    # Run tests with detailed logging
     - name: Run Tests
       id: run_tests
-      run: dotnet test Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release --no-build --verbosity normal
-      continue-on-error: true  # Allow the workflow to continue even if tests fail
+      run: |
+        dotnet test Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release --no-build --verbosity normal
+      continue-on-error: true
       
     # Report test status
     - name: Report Test Status
@@ -155,7 +145,6 @@ jobs:
         else
           echo "❌ Tests failed on ${{ matrix.os }}"
           echo "Check the test logs above for details on the failure."
-          # We continue the workflow despite test failures
         fi
 
     - name: Upload native artifact
@@ -189,22 +178,14 @@ jobs:
     - name: Copy native libraries to expected location for packing
       shell: bash
       run: |
-        # The download action puts each artifact in a subdirectory named after the artifact
-        # e.g., native-artifacts/native-libs-linux-x64/runtimes/...
-        # We need to copy the contents of those subdirectories into the Rust 'target' dir
-        # so the relative paths in the .csproj work during 'dotnet pack'.
-        # Adjust 'target' if your _NativeTargetDir in csproj is different.
         mkdir -p target
         find native-artifacts -mindepth 1 -maxdepth 1 -type d -exec cp -r {}/runtimes target/ \;
 
-        # Debug: Show the final structure before packing
         echo "--- Target directory structure before packing ---"
         ls -R target
 
     - name: Pack NuGet package
-      run: dotnet pack ./ChromaDB.NET/ChromaDB.NET.csproj -c Release -o ./nuget-package --nologo # Corrected project path
-      # The -c Release ensures it uses Release config.
-      # -o specifies the output directory.
+      run: dotnet pack ./ChromaDB.NET/ChromaDB.NET.csproj -c Release -o ./nuget-package --nologo
 
     - name: Upload NuGet package artifact
       uses: actions/upload-artifact@v4

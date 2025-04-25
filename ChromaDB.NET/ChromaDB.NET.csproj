@@ -16,7 +16,6 @@
     <Version>0.1.0</Version>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
   </PropertyGroup>
   <PropertyGroup>
     <_NativeTargetDir>../target</_NativeTargetDir>
