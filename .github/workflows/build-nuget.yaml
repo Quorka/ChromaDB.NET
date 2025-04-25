@@ -55,7 +55,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         # Install protoc and SQLite via Chocolatey (common on GH runners)
-        choco install protobuf sqlite --yes
+        choco install protoc SQLite --yes
         
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
