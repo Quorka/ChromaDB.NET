@@ -89,6 +89,46 @@ jobs:
         # Copy license file if needed in artifact
         # cp LICENSE artifact/
 
+    # Set up .NET SDK for testing 
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    # Prepare for testing by copying native libraries to test output folder
+    - name: Prepare for testing
+      shell: bash
+      run: |
+        # Create runtimes directory in test project with current platform's native lib
+        mkdir -p Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/${{ matrix.artifact_suffix }}/native/
+        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/${{ matrix.artifact_suffix }}/native/
+        
+        # If Linux, also copy directly to output dir for direct loading
+        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+          cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
+        fi
+        
+    # Build and run tests
+    - name: Build Tests
+      run: dotnet build Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release
+      
+    - name: Run Tests
+      id: run_tests
+      run: dotnet test Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release --no-build --verbosity normal
+      continue-on-error: true  # Allow the workflow to continue even if tests fail
+      
+    # Report test status
+    - name: Report Test Status
+      shell: bash
+      run: |
+        if [ "${{ steps.run_tests.outcome }}" == "success" ]; then
+          echo "✅ Tests passed on ${{ matrix.os }}"
+        else
+          echo "❌ Tests failed on ${{ matrix.os }}"
+          echo "Check the test logs above for details on the failure."
+          # We continue the workflow despite test failures
+        fi
+
     - name: Upload native artifact
       uses: actions/upload-artifact@v4
       with:
