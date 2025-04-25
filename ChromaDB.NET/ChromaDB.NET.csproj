@@ -25,11 +25,15 @@
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
+
   <ItemGroup>
-    <None Include="$(_NativeTargetDir)/x86_64-unknown-linux-gnu/release/lib$(_LibName).so" Pack="true" PackagePath="runtimes/linux-x64/native/" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="$(_NativeTargetDir)/x86_64-pc-windows-msvc/release/$(_LibName).dll" Pack="true" PackagePath="runtimes/win-x64/native/" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="$(_NativeTargetDir)/x86_64-apple-darwin/release/lib$(_LibName).dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(_NativeTargetDir)/x86_64-unknown-linux-gnu/release/lib$(_LibName).so" Pack="true" PackagePath="runtimes/linux-x64/native/" />
+    <None Include="$(_NativeTargetDir)/x86_64-pc-windows-msvc/release/$(_LibName).dll" Pack="true" PackagePath="runtimes/win-x64/native/" />
+    <None Include="$(_NativeTargetDir)/x86_64-apple-darwin/release/lib$(_LibName).dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" />
+    <!-- Add osx-arm64 if needed -->
+    <!-- <None Include="$(_NativeTargetDir)/aarch64-apple-darwin/release/lib$(_LibName).dylib" Pack="true" PackagePath="runtimes/osx-arm64/native/" /> -->
   </ItemGroup>
+
   <!-- Include the C# assembly itself in the lib folder -->
   <ItemGroup>
     <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).dll" PackagePath="lib/$(TargetFramework)/" />
