@@ -1,5 +1,5 @@
 [package]
-name = "chroma_csharp"
+name = "chromadb_dotnet_bindings"
 version = "0.1.0"
 edition = "2021"
 description = "C# bindings for ChromaDB"
@@ -10,16 +10,17 @@ name = "chroma_csharp"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-chroma-frontend = { path = "../frontend" }
-chroma-cache = { path = "../cache" }
-chroma-config = { path = "../config" }
-chroma-log = { path = "../log" }
-chroma-segment = { path = "../segment" }
-chroma-sqlite = { path = "../sqlite" }
-chroma-sysdb = { path = "../sysdb" }
-chroma-system = { path = "../system" }
-chroma-types = { path = "../types" }
-chroma-error = { path = "../error" }
+chroma_client = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma_client" }
+chroma_types = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma_types" }
+#chroma-frontend = { path = "../frontend" }
+#chroma-cache = { path = "../cache" }
+#chroma-config = { path = "../config" }
+#chroma-log = { path = "../log" }
+#chroma-segment = { path = "../segment" }
+#chroma-sqlite = { path = "../sqlite" }
+#chroma-sysdb = { path = "../sysdb" }
+#chroma-system = { path = "../system" }
+#chroma-error = { path = "../error" }
 
 # FFI dependencies
 libc = "0.2"
@@ -34,3 +35,10 @@ anyhow = "1.0"
 
 # For FFI string conversions
 cstr = "0.2.11"
+
+[profile.release]
+lto = true          # Link-Time Optimization
+codegen-units = 1   # Maximize optimization opportunities
+strip = true        # Strip symbols
+opt-level = 'z'     # Optimize for size
+panic = 'abort'     # Abort on panic for smaller binary

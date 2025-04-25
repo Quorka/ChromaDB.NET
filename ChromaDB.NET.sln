@@ -2,11 +2,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChromaDB.NET", "src\ChromaDB.NET.csproj", "{1C8F85A1-EFDE-4C88-B0CE-B797F7DDF87D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChromaDB.NET", "ChromaDB.NET\ChromaDB.NET.csproj", "{1C8F85A1-EFDE-4C88-B0CE-B797F7DDF87D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicExample", "Examples\BasicExample\BasicExample.csproj", "{D9F9E7E4-5D7A-4D5A-B61A-F86764F80D5A}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{7E81B011-DE61-49E0-9B8F-9F4F98E0531A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChromaDB.NET.Tests", "Tests\ChromaDB.NET.Tests\ChromaDB.NET.Tests.csproj", "{BF9C7BFC-7039-4AC8-9D1A-E17E4091E3C3}"
 EndProject

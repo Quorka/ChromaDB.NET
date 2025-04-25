@@ -8,7 +8,6 @@ TestResults/
 
 # Native libraries
 runtimes/
-src/runtimes/
 
 # User-specific files
 *.user
@@ -21,3 +20,8 @@ src/runtimes/
 # Temp files
 *.tmp
 *.log
+
+Cargo.lock
+
+# Rust exclusions
+target/
