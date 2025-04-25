@@ -95,22 +95,51 @@ jobs:
       with:
         dotnet-version: '8.0.x'
         
-    # Prepare for testing by copying native libraries to test output folder
-    - name: Prepare for testing
+    # Create the runtimes directory in the project root for testing
+    - name: Setup runtimes directory for testing
       shell: bash
       run: |
-        # Create runtimes directory in test project with current platform's native lib
-        mkdir -p Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/${{ matrix.artifact_suffix }}/native/
-        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/${{ matrix.artifact_suffix }}/native/
-        
-        # If Linux, also copy directly to output dir for direct loading
-        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-          cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
-        fi
+        mkdir -p runtimes/${{ matrix.artifact_suffix }}/native/
+        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} runtimes/${{ matrix.artifact_suffix }}/native/
+
+    # For Windows tests, we also need to copy the DLL to the root of the test bin directory
+    - name: Prepare Windows DLL
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Path "Tests\ChromaDB.NET.Tests\bin\Release\net8.0" -Force
+        Copy-Item "target\${{ matrix.target }}\release\${{ matrix.lib_name }}" -Destination "Tests\ChromaDB.NET.Tests\bin\Release\net8.0\"
+
+    # For macOS tests, copy dylib to the root of test bin directory
+    - name: Prepare macOS dylib
+      if: matrix.os == 'macos-latest'
+      shell: bash
+      run: |
+        mkdir -p Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
+        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
         
     # Build and run tests
     - name: Build Tests
       run: dotnet build Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release
+      
+    # Additional library copy after build to ensure the DLL is in the right place
+    - name: Additional native library copy (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        # Ensure DLL is in all possible locations .NET might look for it
+        Copy-Item "target\${{ matrix.target }}\release\${{ matrix.lib_name }}" -Destination "Tests\ChromaDB.NET.Tests\bin\Release\net8.0\"
+        Copy-Item "target\${{ matrix.target }}\release\${{ matrix.lib_name }}" -Destination "Tests\ChromaDB.NET.Tests\bin\Release\net8.0\runtimes\win-x64\native\"
+        
+    # Additional library copy for macOS
+    - name: Additional native library copy (macOS)
+      if: matrix.os == 'macos-latest'
+      shell: bash
+      run: |
+        # Ensure dylib is in all possible locations .NET might look for it
+        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/
+        mkdir -p Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/osx-x64/native/
+        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} Tests/ChromaDB.NET.Tests/bin/Release/net8.0/runtimes/osx-x64/native/
       
     - name: Run Tests
       id: run_tests

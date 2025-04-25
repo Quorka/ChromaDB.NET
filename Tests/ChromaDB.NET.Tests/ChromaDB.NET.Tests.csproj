@@ -4,8 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-
     <IsPackable>false</IsPackable>
+    <!-- Add native library handling properties -->
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,9 +25,12 @@
       <NativeLibs Include="..\..\runtimes\**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(OutDir)\runtimes\%(RecursiveDir)" SkipUnchangedFiles="true" />
-
-    <!-- Also copy the library to the output directory directly for Linux -->
-    <Copy Condition="$([MSBuild]::IsOSPlatform('Linux'))" SourceFiles="..\..\runtimes\linux-x64\native\libchroma_csharp.so" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    
+    <!-- Special handling for Windows to ensure the library can be found -->
+    <Copy Condition="$([MSBuild]::IsOSPlatform('Windows'))"
+          SourceFiles="..\..\runtimes\win-x64\native\chroma_csharp.dll"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
