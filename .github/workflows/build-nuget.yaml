@@ -106,7 +106,7 @@ jobs:
       shell: bash
       run: |
         TEST_OUTPUT_DIR="Tests/ChromaDB.NET.Tests/bin/Release/net8.0"
-        RUNTIME_DIR="$TEST_OUTPUT_DIR/runtimes/${{ matrix.artifact_suffix }}/native"
+        RUNTIME_DIR="$TEST_OUTPUT_DIR"
         SOURCE_LIB="target/${{ matrix.target }}/release/${{ matrix.lib_name }}"
 
         echo "Copying native library for testing..."
