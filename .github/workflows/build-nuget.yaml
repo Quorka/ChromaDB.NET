@@ -1,0 +1,120 @@
+name: Build and Pack NuGet
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ] # Trigger on version tags like v0.1.0
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build_native:
+    name: Build Native ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # Keep running other jobs even if one fails
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_suffix: linux-x64
+            lib_name: libchroma_csharp_bindings.so 
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_suffix: win-x64
+            lib_name: chroma_csharp_bindings.dll 
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_suffix: osx-x64
+            lib_name: libchroma_csharp_bindings.dylib 
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        # Fetch chroma submodule if you switch to using submodules later
+        # submodules: 'recursive'
+        # Fetch all history for git dependencies (might be needed)
+        fetch-depth: 0
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Setup Cache (Cargo registry, index, build)
+      uses: Swatinem/rust-cache@v2
+      with:
+        # Cache git dependencies based on Cargo.lock
+        key: ${{ matrix.target }}
+
+    - name: Build native library
+      run: cargo build --release --target ${{ matrix.target }}
+      env:
+        # Potentially needed for dependencies requiring specific env vars
+        # e.g., OPENSSL_DIR, PROTOC, etc. Add as necessary.
+        RUSTFLAGS: "-C target-feature=+crt-static" # Example for Windows static CRT linkage
+
+    - name: Prepare artifact
+      shell: bash
+      run: |
+        mkdir -p artifact/runtimes/${{ matrix.artifact_suffix }}/native/
+        cp target/${{ matrix.target }}/release/${{ matrix.lib_name }} artifact/runtimes/${{ matrix.artifact_suffix }}/native/
+        # Copy license file if needed in artifact
+        # cp LICENSE artifact/
+
+    - name: Upload native artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: native-libs-${{ matrix.artifact_suffix }}
+        path: artifact/
+
+  pack_nuget:
+    name: Pack NuGet Package
+    needs: build_native # Run after all native builds succeed
+    runs-on: ubuntu-latest # Or windows-latest, just needs dotnet
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '6.0.x' # Or your target SDK version
+
+    - name: Download all native artifacts
+      uses: actions/download-artifact@v4
+      with:
+        # No 'name' specified downloads all artifacts from this workflow run
+        path: native-artifacts # Download to a directory
+
+    - name: Display structure of downloaded files
+      run: ls -R native-artifacts
+
+    - name: Copy native libraries to expected location for packing
+      shell: bash
+      run: |
+        # The download action puts each artifact in a subdirectory named after the artifact
+        # e.g., native-artifacts/native-libs-linux-x64/runtimes/...
+        # We need to copy the contents of those subdirectories into the Rust 'target' dir
+        # so the relative paths in the .csproj work during 'dotnet pack'.
+        # Adjust 'target' if your _NativeTargetDir in csproj is different.
+        mkdir -p target
+        find native-artifacts -mindepth 1 -maxdepth 1 -type d -exec cp -r {}/runtimes target/ \;
+
+        # Debug: Show the final structure before packing
+        echo "--- Target directory structure before packing ---"
+        ls -R target
+
+    - name: Pack NuGet package
+      run: dotnet pack ./csharp/ChromaDBSharp.csproj -c Release -o ./nuget-package --nologo
+      # The -c Release ensures it uses Release config.
+      # -o specifies the output directory.
+
+    - name: Upload NuGet package artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-package
+        path: ./nuget-package/*.nupkg
