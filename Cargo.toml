@@ -10,16 +10,16 @@ name = "chroma_csharp"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-chroma-frontend = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-frontend" }
-chroma-cache = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-cache" }
-chroma-config = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-config" }
-chroma-log = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-log" }
-chroma-segment = { git = "https://github.com/chroma-core/chroma.git",  tag = "1.0.7", package = "chroma-segment" }
-chroma-sqlite = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-sqlite" }
-chroma-sysdb = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-sysdb" }
-chroma-system = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-system" }
-chroma-types = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.7", package = "chroma-types" }
-chroma-error = { git = "https://github.com/chroma-core/chroma.git",  tag = "1.0.7", package = "chroma-error" }
+chroma-frontend = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-frontend" }
+chroma-cache = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-cache" }
+chroma-config = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-config" }
+chroma-log = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-log" }
+chroma-segment = { git = "https://github.com/chroma-core/chroma.git",  tag = "1.0.6", package = "chroma-segment" }
+chroma-sqlite = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-sqlite" }
+chroma-sysdb = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-sysdb" }
+chroma-system = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-system" }
+chroma-types = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.6", package = "chroma-types" }
+chroma-error = { git = "https://github.com/chroma-core/chroma.git",  tag = "1.0.6", package = "chroma-error" }
 
 # FFI dependencies
 libc = "0.2"
