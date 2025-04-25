@@ -10,17 +10,16 @@ name = "chroma_csharp"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-#chroma_client = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma_client" }
-chroma_types = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma_types" }
-chroma-frontend = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "frontend" }
-chroma-cache = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "cache" }
-chroma-config = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "config" }
-chroma-log = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "log" }
-chroma-segment = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "segment" }
-chroma-sqlite = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "sqlite" }
-chroma-sysdb = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "sysdb" }
-chroma-system = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "system" }
-chroma-error = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "error" }
+chroma-frontend = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-frontend" }
+chroma-cache = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-cache" }
+chroma-config = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-config" }
+chroma-log = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-log" }
+chroma-segment = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-segment" }
+chroma-sqlite = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-sqlite" }
+chroma-sysdb = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-sysdb" }
+chroma-system = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-system" }
+chroma-types = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-types" }
+chroma-error = { git = "https://github.com/chroma-core/chroma.git", branch = "main", package = "chroma-error" }
 
 # FFI dependencies
 libc = "0.2"
