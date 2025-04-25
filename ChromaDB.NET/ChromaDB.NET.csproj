@@ -28,7 +28,8 @@
   <ItemGroup>
     <None Include="$(_NativeTargetDir)/runtimes/linux-x64/native/lib$(_LibName).so" Pack="true" PackagePath="runtimes/linux-x64/native/" />
     <None Include="$(_NativeTargetDir)/runtimes/win-x64/native/$(_LibName).dll" Pack="true" PackagePath="runtimes/win-x64/native/" />
-    <None Include="$(_NativeTargetDir)/runtimes/osx-x64/native/lib$(_LibName).dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" />
+    <None Include="$(_NativeTargetDir)/runtimes/osx-x64/native/lib$(_LibName)" Pack="true" PackagePath="runtimes/osx-x64/native/" />
+    <None Include="$(_NativeTargetDir)/runtimes/osx-arm64/native/lib$(_LibName).dylib" Pack="true" PackagePath="runtimes/osx-arm64/native/" />
     <!-- Add osx-arm64 if needed -->
     <!-- <None Include="$(_NativeTargetDir)/aarch64-apple-darwin/release/lib$(_LibName).dylib" Pack="true" PackagePath="runtimes/osx-arm64/native/" /> -->
   </ItemGroup>

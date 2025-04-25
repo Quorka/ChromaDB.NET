@@ -29,9 +29,13 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact_suffix: osx-x64
+            lib_name: libchroma_csharp
+            dll_search_name: chroma_csharp # For NativeMethods.cs loading
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_suffix: osx-arm64
             lib_name: libchroma_csharp.dylib
             dll_search_name: chroma_csharp # For NativeMethods.cs loading
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
