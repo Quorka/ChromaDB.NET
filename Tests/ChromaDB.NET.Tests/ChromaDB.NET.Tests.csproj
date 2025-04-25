@@ -16,12 +16,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ChromaDB.NET.csproj" />
+    <ProjectReference Include="..\..\ChromaDB.NET\ChromaDB.NET.csproj" />
   </ItemGroup>
 
   <Target Name="CopyNativeLibs" AfterTargets="Build">
     <ItemGroup>
-      <NativeLibs Include="..\..\src\runtimes\**\*.*" />
+      <NativeLibs Include="..\..\runtimes\**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(OutDir)\runtimes\%(RecursiveDir)" SkipUnchangedFiles="true" />
 

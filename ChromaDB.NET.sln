@@ -1,12 +1,16 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChromaDB.NET", "ChromaDB.NET\ChromaDB.NET.csproj", "{1C8F85A1-EFDE-4C88-B0CE-B797F7DDF87D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicExample", "Examples\BasicExample\BasicExample.csproj", "{D9F9E7E4-5D7A-4D5A-B61A-F86764F80D5A}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{3A322D24-5D1D-4103-B542-7771B578D837}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChromaDB.NET.Tests", "Tests\ChromaDB.NET.Tests\ChromaDB.NET.Tests.csproj", "{BF9C7BFC-7039-4AC8-9D1A-E17E4091E3C3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChromaDB.NET.Tests", "Tests\ChromaDB.NET.Tests\ChromaDB.NET.Tests.csproj", "{7D70C24C-495F-472B-ADD4-E750D1C3092B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{B65E4F38-7033-4B28-826E-737ABE938598}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicExample", "Examples\BasicExample\BasicExample.csproj", "{F20C4C29-722B-410B-AF29-0DCCA5B49CFF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,21 +21,17 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{1C8F85A1-EFDE-4C88-B0CE-B797F7DDF87D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1C8F85A1-EFDE-4C88-B0CE-B797F7DDF87D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1C8F85A1-EFDE-4C88-B0CE-B797F7DDF87D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1C8F85A1-EFDE-4C88-B0CE-B797F7DDF87D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D9F9E7E4-5D7A-4D5A-B61A-F86764F80D5A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D9F9E7E4-5D7A-4D5A-B61A-F86764F80D5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D9F9E7E4-5D7A-4D5A-B61A-F86764F80D5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D9F9E7E4-5D7A-4D5A-B61A-F86764F80D5A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BF9C7BFC-7039-4AC8-9D1A-E17E4091E3C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BF9C7BFC-7039-4AC8-9D1A-E17E4091E3C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BF9C7BFC-7039-4AC8-9D1A-E17E4091E3C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BF9C7BFC-7039-4AC8-9D1A-E17E4091E3C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D70C24C-495F-472B-ADD4-E750D1C3092B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D70C24C-495F-472B-ADD4-E750D1C3092B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D70C24C-495F-472B-ADD4-E750D1C3092B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D70C24C-495F-472B-ADD4-E750D1C3092B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F20C4C29-722B-410B-AF29-0DCCA5B49CFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F20C4C29-722B-410B-AF29-0DCCA5B49CFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F20C4C29-722B-410B-AF29-0DCCA5B49CFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F20C4C29-722B-410B-AF29-0DCCA5B49CFF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{D9F9E7E4-5D7A-4D5A-B61A-F86764F80D5A} = {F7E52F15-6F8F-4C17-AD36-322F898D8F7A}
-		{BF9C7BFC-7039-4AC8-9D1A-E17E4091E3C3} = {7E81B011-DE61-49E0-9B8F-9F4F98E0531A}
+		{7D70C24C-495F-472B-ADD4-E750D1C3092B} = {3A322D24-5D1D-4103-B542-7771B578D837}
+		{F20C4C29-722B-410B-AF29-0DCCA5B49CFF} = {B65E4F38-7033-4B28-826E-737ABE938598}
 	EndGlobalSection
 EndGlobal

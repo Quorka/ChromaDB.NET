@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\ChromaDB.NET.csproj" />
+    <ProjectReference Include="..\..\ChromaDB.NET\ChromaDB.NET.csproj" />
   </ItemGroup>
 
 </Project>

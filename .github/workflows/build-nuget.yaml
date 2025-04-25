@@ -19,15 +19,15 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_suffix: linux-x64
-            lib_name: libchroma_csharp_bindings.so 
+            lib_name: libchroma_csharp.so # Corrected lib name
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_suffix: win-x64
-            lib_name: chroma_csharp_bindings.dll 
+            lib_name: chroma_csharp.dll # Corrected lib name
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact_suffix: osx-x64
-            lib_name: libchroma_csharp_bindings.dylib 
+            lib_name: libchroma_csharp.dylib # Corrected lib name
 
     steps:
     - name: Checkout code
@@ -91,8 +91,8 @@ jobs:
 
   pack_nuget:
     name: Pack NuGet Package
-    needs: build_native # Run after all native builds succeed
-    runs-on: ubuntu-latest # Or windows-latest, just needs dotnet
+    needs: build_native 
+    runs-on: ubuntu-latest 
 
     steps:
     - name: Checkout code
@@ -101,13 +101,12 @@ jobs:
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '6.0.x' # Or your target SDK version
+        dotnet-version: '8.0.x'
 
     - name: Download all native artifacts
       uses: actions/download-artifact@v4
       with:
-        # No 'name' specified downloads all artifacts from this workflow run
-        path: native-artifacts # Download to a directory
+        path: native-artifacts 
 
     - name: Display structure of downloaded files
       run: ls -R native-artifacts
@@ -128,7 +127,7 @@ jobs:
         ls -R target
 
     - name: Pack NuGet package
-      run: dotnet pack ./csharp/ChromaDBSharp.csproj -c Release -o ./nuget-package --nologo
+      run: dotnet pack ./ChromaDB.NET/ChromaDB.NET.csproj -c Release -o ./nuget-package --nologo # Corrected project path
       # The -c Release ensures it uses Release config.
       # -o specifies the output directory.
 

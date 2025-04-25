@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -7,7 +6,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-
     <!-- NuGet Package Information -->
     <PackageId>ChromaDB.NET</PackageId>
     <Title>ChromaDB.NET</Title>
@@ -20,38 +18,25 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IncludeBuildOutput>false</IncludeBuildOutput>
   </PropertyGroup>
-
   <PropertyGroup>
     <_NativeTargetDir>../target</_NativeTargetDir>
-    <_LibName>chromadb_dotnet_bindings</_LibName>
+    <_LibName>chroma_csharp</_LibName>
   </PropertyGroup>
-
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
-
-    <!-- Include native libraries -->
-    <Content Include="..\runtimes\linux-x64\native\libchroma_csharp.so">
-      <PackagePath>..\runtimes\linux-x64\native</PackagePath>
-      <Pack>true</Pack>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
-
   <ItemGroup>
     <None Include="$(_NativeTargetDir)/x86_64-unknown-linux-gnu/release/lib$(_LibName).so" Pack="true" PackagePath="runtimes/linux-x64/native/" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(_NativeTargetDir)/x86_64-pc-windows-msvc/release/$(_LibName).dll" Pack="true" PackagePath="runtimes/win-x64/native/" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(_NativeTargetDir)/x86_64-apple-darwin/release/lib$(_LibName).dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-
   <!-- Include the C# assembly itself in the lib folder -->
-   <ItemGroup>
+  <ItemGroup>
     <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).dll" PackagePath="lib/$(TargetFramework)/" />
     <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).pdb" PackagePath="lib/$(TargetFramework)/" />
     <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).xml" PackagePath="lib/$(TargetFramework)/" Condition="Exists('$(OutputPath)$(AssemblyName).xml')" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
-
 </Project>
