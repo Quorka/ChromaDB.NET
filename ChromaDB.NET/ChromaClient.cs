@@ -70,7 +70,7 @@ public class ChromaClient : IDisposable
             false,
             IntPtr.Zero,
             (UIntPtr)hnswCacheSize,
-            persistDirectory,
+            persistDirectory ?? string.Empty,
             out _handle,
             out var errorPtr);
 
