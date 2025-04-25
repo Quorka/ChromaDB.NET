@@ -71,9 +71,15 @@ jobs:
     - name: Build native library
       run: cargo build --release --target ${{ matrix.target }}
       env:
-        # Potentially needed for dependencies requiring specific env vars
-        # e.g., OPENSSL_DIR, PROTOC, etc. Add as necessary.
-        RUSTFLAGS: "-C target-feature=+crt-static" # Example for Windows static CRT linkage
+        # Apply RUSTFLAGS only for the Windows MSVC target
+        RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
+
+    - name: List target directory contents (Linux Debug)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        echo "Listing contents of target directory..."
+        ls -R target
+      shell: bash
 
     - name: Prepare artifact
       shell: bash
