@@ -110,7 +110,7 @@ pub extern "C" fn chroma_create_client(
             };
 
             SqliteDBConfig {
-                url: Some(url),
+                url: None,
                 hash_type,
                 migration_mode,
             }
@@ -118,7 +118,7 @@ pub extern "C" fn chroma_create_client(
     } else {
         // Default SQLite configuration
         SqliteDBConfig {
-            url: Some("sqlite:///chroma.db".to_string()),
+            url: None,
             hash_type: MigrationHash::SHA256,
             migration_mode: MigrationMode::Apply,
         }
@@ -146,7 +146,7 @@ pub extern "C" fn chroma_create_client(
     };
 
     // Adjust SQLite URL if persist_path is provided
-    if let Some(persist_dir) = &persist_path {
+    /* if let Some(persist_dir) = &persist_path {
         let db_path = Path::new(persist_dir).join("chroma.db");
         
         // Get canonical path if possible, otherwise use the path as-is
@@ -175,7 +175,7 @@ pub extern "C" fn chroma_create_client(
         };
         
         sqlite_db_config.url = Some(sqlite_url.clone());
-    }
+    } */
 
     // Create runtime and frontend
     let runtime = match Runtime::new() {
