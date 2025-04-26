@@ -149,34 +149,29 @@ pub extern "C" fn chroma_create_client(
     // Adjust SQLite URL if persist_path is provided
     if let Some(persist_dir) = &persist_path {
         let db_path = Path::new(persist_dir).join("chroma.db");
-        // Use Url::from_file_path for robust, cross-platform path-to-URL conversion
-        match url::Url::from_file_path(&db_path) {
-             Ok(mut file_url) => {
-                 // Ensure the scheme is 'sqlite' for the database connection
-                 if let Err(e) = file_url.set_scheme("sqlite") {
-                     set_error(
-                         error_out,
-                         ChromaErrorCode::InternalError,
-                         "Failed to set scheme for SQLite URL",
-                         func_name,
-                         Some(&format!("{:?}", e)),
-                     );
-                     return ChromaErrorCode::InternalError as c_int;
-                 }
-                 sqlite_db_config.url = Some(file_url.to_string());
-             },
-             Err(_) => {
-                 // This case should ideally not happen if persist_dir is a valid directory path
-                 set_error(
-                     error_out,
-                     ChromaErrorCode::InvalidArgument,
-                     "Failed to create absolute SQLite URL from persistence path",
-                     func_name,
-                     Some(&format!("Path: {:?}", db_path)),
-                 );
-                 return ChromaErrorCode::InvalidArgument as c_int;
-             }
-         }
+        
+        // Get canonical path if possible, otherwise use the path as-is
+        let canonical_path = match db_path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => db_path.clone(), // Use as-is if we can't canonicalize
+        };
+        
+        // Convert the path to a string with proper URL formatting
+        let path_str = canonical_path.to_string_lossy();
+        
+        // Create SQLite URL format: sqlite:///path/to/file
+        // Need to handle different path formats on different platforms
+        let sqlite_url = if cfg!(windows) {
+            // Windows paths (C:\path\to\file -> sqlite:///C:/path/to/file)
+            // Remove any leading slash that canonicalize might have added and replace backslashes
+            format!("sqlite:///{}", path_str.trim_start_matches('/').replace('\\', "/"))
+        } else {
+            // Unix paths (/path/to/file -> sqlite:////path/to/file)
+            // Need 3 slashes + the absolute path that starts with a slash
+            format!("sqlite://{}", path_str)
+        };
+        
+        sqlite_db_config.url = Some(sqlite_url.clone());
     }
 
     // Create runtime and frontend
