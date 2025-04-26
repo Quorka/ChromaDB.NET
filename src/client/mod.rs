@@ -159,15 +159,19 @@ pub extern "C" fn chroma_create_client(
         // Convert the path to a string with proper URL formatting
         let path_str = canonical_path.to_string_lossy();
         
-        // Create SQLite URL format: sqlite:///path/to/file
-        // Need to handle different path formats on different platforms
+        // Create SQLite URL format with platform-specific handling
         let sqlite_url = if cfg!(windows) {
-            // Windows paths (C:\path\to\file -> sqlite:///C:/path/to/file)
-            // Remove any leading slash that canonicalize might have added and replace backslashes
-            format!("sqlite:///{}", path_str.trim_start_matches('/').replace('\\', "/"))
+            // Windows requires a specific format for SQLite URLs
+            // Format: sqlite:///C:/path/to/file (with forward slashes)
+            let windows_path = path_str.replace('\\', "/");
+            
+            // Remove any potential leading slashes before drive letter
+            let cleaned_path = windows_path.trim_start_matches('/');
+            
+            // Add URI parameters to ensure proper file creation/access
+            format!("sqlite:///{}?mode=rwc", cleaned_path)
         } else {
-            // Unix paths (/path/to/file -> sqlite:////path/to/file)
-            // Need 3 slashes + the absolute path that starts with a slash
+            // Unix paths: sqlite:///absolute/path or sqlite:////absolute/path
             format!("sqlite://{}", path_str)
         };
         
@@ -243,6 +247,9 @@ pub extern "C" fn chroma_create_client(
         executor: executor_config,
         default_knn_index: knn_index,
     };
+
+    // Log the frontend config    
+    println!("Frontend config: {:?}", frontend_config);
 
     // Create frontend
     let frontend = match runtime
