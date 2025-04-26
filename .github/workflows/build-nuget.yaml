@@ -49,7 +49,7 @@ jobs:
         sudo apt-get install -y protobuf-compiler libsqlite3-dev
 
     - name: Install Dependencies (macOS)
-      if: matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-latest' || matrix.os == 'macos-13'
       run: |
         brew install protobuf sqlite
 
@@ -139,7 +139,7 @@ jobs:
       run: |
         dotnet test Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release --no-build --verbosity normal
       continue-on-error: ${{ matrix.os == 'windows-latest' }}
-      
+
     # Report test status
     - name: Report Test Status
       shell: bash
