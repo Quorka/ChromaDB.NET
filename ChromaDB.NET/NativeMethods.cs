@@ -21,7 +21,7 @@ internal static class NativeMethods
         [MarshalAs(UnmanagedType.I1)] bool allowReset,
         IntPtr sqliteConfigPtr,
         UIntPtr hnswCacheSize,
-        [MarshalAs(UnmanagedType.LPStr)] string persistPath,
+        [MarshalAs(UnmanagedType.LPStr)] string? persistPath,
         out IntPtr clientHandle,
         out IntPtr error);
 

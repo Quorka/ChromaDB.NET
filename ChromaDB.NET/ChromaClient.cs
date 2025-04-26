@@ -64,13 +64,13 @@ public class ChromaClient : IDisposable
     /// </summary>
     /// <param name="persistDirectory">Directory for persisting data</param>
     /// <param name="hnswCacheSize">Size of the HNSW index cache</param>
-    public ChromaClient(string persistDirectory = null, int hnswCacheSize = 1000)
+    public ChromaClient(string? persistDirectory = null, int hnswCacheSize = 1000)
     {
         var result = NativeMethods.chroma_create_client(
             false,
             IntPtr.Zero,
             (UIntPtr)hnswCacheSize,
-            persistDirectory ?? string.Empty,
+            persistDirectory,
             out _handle,
             out var errorPtr);
 
