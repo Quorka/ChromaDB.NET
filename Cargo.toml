@@ -28,6 +28,7 @@ serde_json = "1.0.133"
 tokio = { version = "1.41", features = ["full", "fs", "macros", "rt-multi-thread"] }
 uuid = { version = "1.11.0", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
 chrono = "=0.4.39"
+url = "2.5.0"
 
 # For error handling
 thiserror = "1.0.69"

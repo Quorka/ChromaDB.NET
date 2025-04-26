@@ -18,7 +18,9 @@ use chroma_types::{
 };
 use libc::{c_char, c_int, size_t};
 use std::time::SystemTime;
+use std::path::Path;
 use tokio::runtime::Runtime;
+use url::Url; 
 
 use crate::error::{set_error, set_success, ChromaErrorCode, ChromaError};
 use crate::types::SqliteConfigFFI;
@@ -57,7 +59,7 @@ pub extern "C" fn chroma_create_client(
     }
 
     // Parse SQLite configuration
-    let sqlite_db_config = if !sqlite_config_ptr.is_null() {
+    let mut sqlite_db_config = if !sqlite_config_ptr.is_null() {
         unsafe {
             let sqlite_config = &*sqlite_config_ptr;
 
@@ -143,6 +145,39 @@ pub extern "C" fn chroma_create_client(
     } else {
         None
     };
+
+    // Adjust SQLite URL if persist_path is provided
+    if let Some(persist_dir) = &persist_path {
+        let db_path = Path::new(persist_dir).join("chroma.db");
+        // Use Url::from_file_path for robust, cross-platform path-to-URL conversion
+        match url::Url::from_file_path(&db_path) {
+             Ok(mut file_url) => {
+                 // Ensure the scheme is 'sqlite' for the database connection
+                 if let Err(e) = file_url.set_scheme("sqlite") {
+                     set_error(
+                         error_out,
+                         ChromaErrorCode::InternalError,
+                         "Failed to set scheme for SQLite URL",
+                         func_name,
+                         Some(&format!("{:?}", e)),
+                     );
+                     return ChromaErrorCode::InternalError as c_int;
+                 }
+                 sqlite_db_config.url = Some(file_url.to_string());
+             },
+             Err(_) => {
+                 // This case should ideally not happen if persist_dir is a valid directory path
+                 set_error(
+                     error_out,
+                     ChromaErrorCode::InvalidArgument,
+                     "Failed to create absolute SQLite URL from persistence path",
+                     func_name,
+                     Some(&format!("Path: {:?}", db_path)),
+                 );
+                 return ChromaErrorCode::InvalidArgument as c_int;
+             }
+         }
+    }
 
     // Create runtime and frontend
     let runtime = match Runtime::new() {
