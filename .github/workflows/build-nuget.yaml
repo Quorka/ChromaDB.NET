@@ -129,16 +129,12 @@ jobs:
           chmod +x "$RUNTIME_DIR/${{ matrix.lib_name }}"
           # chmod +x "$TEST_OUTPUT_DIR/${{ matrix.lib_name }}" # If using the fallback copy
         fi
-        
-        echo "Listing contents of $TEST_OUTPUT_DIR"
-        ls -R "$TEST_OUTPUT_DIR"
 
     # Run tests with detailed logging
     - name: Run Tests
       id: run_tests
       run: |
         dotnet test Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release --no-build --verbosity normal
-      continue-on-error: ${{ matrix.os == 'windows-latest' }}
 
     # Report test status
     - name: Report Test Status
@@ -196,3 +192,11 @@ jobs:
       with:
         name: nuget-package
         path: ./nuget-package/*.nupkg
+
+    - name: Publish to GitHub Packages
+      # Only publish when a tag starting with 'v' is pushed
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: dotnet nuget push ./nuget-package/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source "https://nuget.pkg.github.com/${{ github.repository_owner }}" --skip-duplicate
+      env:
+        # GITHUB_TOKEN is automatically available to the workflow
+        NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
