@@ -20,7 +20,6 @@ use libc::{c_char, c_int, size_t};
 use std::time::SystemTime;
 use std::path::Path;
 use tokio::runtime::Runtime;
-use url::Url; 
 
 use crate::error::{set_error, set_success, ChromaErrorCode, ChromaError};
 use crate::types::SqliteConfigFFI;

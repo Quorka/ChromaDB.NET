@@ -26,7 +26,7 @@ jobs:
             artifact_suffix: win-x64
             lib_name: chroma_csharp.dll
             dll_search_name: chroma_csharp # For NativeMethods.cs loading
-          - os: macos-latest
+          - os: macos-13
             target: x86_64-apple-darwin
             artifact_suffix: osx-x64
             lib_name: libchroma_csharp.dylib
@@ -138,7 +138,7 @@ jobs:
       id: run_tests
       run: |
         dotnet test Tests/ChromaDB.NET.Tests/ChromaDB.NET.Tests.csproj -c Release --no-build --verbosity normal
-      continue-on-error: true
+      continue-on-error: ${{ matrix.os == 'windows-latest' }}
       
     # Report test status
     - name: Report Test Status
