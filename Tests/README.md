@@ -11,12 +11,15 @@ The test suite is organized into several test files:
 - **WhereFilterTests.cs**: Tests for the WhereFilter fluent API
 - **DatabaseOperationsTests.cs**: Tests for database-related operations
 - **IntegrationTests.cs**: End-to-end tests covering full workflows
+- **EmbeddingsTests.cs**: Tests related to embedding functions
+- **MetadataConverterTests.cs**: Tests for metadata conversion logic
+- **NativeLibTests.cs**: Tests directly interacting with the native library
 
 ## Running Tests
 
 ### Prerequisites
 
-1. Ensure you have the .NET 6.0 SDK installed
+1. Ensure you have the .NET 8.0 SDK installed
 2. Build the native libraries by running the build script in the root directory:
    - On Linux/macOS: `./build.sh`
    - On Windows: `./build.ps1`
@@ -57,7 +60,7 @@ If you encounter issues with the tests:
 
 2. **Permission Issues**: On Linux, you may need to make the library executable:
    ```bash
-   chmod +x Tests/ChromaDB.NET.Tests/bin/Debug/net6.0/runtimes/linux-x64/native/libchroma_csharp.so
+   chmod +x Tests/ChromaDB.NET.Tests/bin/Debug/net8.0/runtimes/linux-x64/native/libchroma_csharp.so
    ```
 
 3. **Runtime Errors**: Try running the tests in Debug mode for better error information:

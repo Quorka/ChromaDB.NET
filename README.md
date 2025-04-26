@@ -30,9 +30,7 @@ The C# bindings provide a native interface to ChromaDB's Rust core, allowing you
 
 ## Installation
 
-```bash
-dotnet add package ChromaDB.NET
-```
+For the moment this is manual - not ready for Nuget yet.
 
 ## Basic Usage
 
@@ -43,7 +41,7 @@ using ChromaDB.NET;
 using var client = new ChromaClient();
 
 // Define an embedding function (replace with your actual implementation)
-var embeddingFunction = new SimpleEmbeddingFunction(); // Assuming SimpleEmbeddingFunction from example
+var embeddingFunction = new SimpleEmbeddingFunction(); // Assuming SimpleEmbeddingFunction from included example solution
 
 // Create or get a collection
 using var collection = client.GetOrCreateCollection("documents", embeddingFunction);
@@ -76,29 +74,41 @@ foreach (var id in results.Ids)
 
 ### Filtering with the Fluent API
 
+Use the `WhereFilter` class to build filters fluently. Multiple conditions chained together are combined with AND logic by default.
+
 ```csharp
-// Create a filter using a dictionary (fluent API for WhereFilter not shown in example)
-var filter = new Dictionary<string, object> 
-{
-    { "category", "article" },
-    { "year", new Dictionary<string, object> { { "$gt", 2020 } } } // Example for greater than
-};
+// Find articles published after 2020
+var filter1 = new WhereFilter()
+    .Equals("category", "article")
+    .GreaterThan("year", 2020);
 
 // Apply the filter using Query
-var results = collection.Query(
-    queryText: "relevant topic", // Query requires some query text/embeddings
-    whereFilter: filter,
+var results1 = collection.Query(
+    queryText: "relevant topic", 
+    whereFilter: filter1, // Pass the WhereFilter object
     nResults: 10,
     includeDocuments: true
 );
 
+// Find documents tagged with either "AI" or "ML"
+var filter2 = new WhereFilter()
+    .In("tags", new[] { "AI", "ML" }); 
+
 // Combined query and filter
-var queryResults = collection.Query(
+var results2 = collection.Query(
     queryText: "machine learning", 
-    whereFilter: new Dictionary<string, object> { { "tags", new Dictionary<string, object> { { "$in", new[] { "AI", "ML" } } } } }, // Example for $in operator
+    whereFilter: filter2, 
     nResults: 10,
     includeDocuments: true
 );
+
+// You can also explicitly combine filters using And() or Or()
+var explicitOrFilter = new WhereFilter().Or(
+    new WhereFilter().Equals("source", "journal"),
+    new WhereFilter().Equals("source", "conference")
+);
+var results3 = collection.Query(queryText: "research paper", whereFilter: explicitOrFilter, nResults: 5);
+
 ```
 
 ### Document Management
@@ -109,10 +119,6 @@ collection.Add(new ChromaDocument { Id = "doc3", Text = "Document text", Metadat
 
 // Get a document by ID
 var docResult = collection.Get(ids: new[] { "doc3" }, includeDocuments: true, includeMetadatas: true);
-if (docResult.Ids.Count > 0)
-{
-    Console.WriteLine($"Got doc: {docResult.Documents[0]}");
-}
 
 // Update a document (Note: Update replaces embeddings/text/metadata based on what's provided)
 collection.Update(new ChromaDocument { Id = "doc3", Text = "Updated text", Metadata = new Dictionary<string, object> { ["updated"] = true } });
@@ -126,33 +132,7 @@ collection.Delete(ids: new[] { "doc3", "doc4" });
 
 ## Using with Embedding Models
 
-ChromaDB.NET can be used with any embedding model. Here's an example using a sentence transformer model:
-
-```csharp
-public class SentenceTransformerEmbedding : IEmbeddingFunction
-{
-    private readonly SentenceTransformer _model;
-    
-    public SentenceTransformerEmbedding(string modelName = "all-MiniLM-L6-v2")
-    {
-        _model = new SentenceTransformer(modelName);
-    }
-    
-    public float[][] GenerateEmbeddings(IEnumerable<string> documents)
-    {
-        return _model.Encode(documents.ToArray()).ToArray();
-    }
-    
-    public object Configuration => new { 
-        name = "sentence_transformer",
-        model = "all-MiniLM-L6-v2"
-    };
-}
-
-// Use with ChromaDB
-var embeddingFunction = new SentenceTransformerEmbedding();
-var collection = client.CreateCollection("my-collection", embeddingFunction);
-```
+ChromaDB.NET can be used with any embedding model. 
 
 ## API Reference
 
@@ -211,4 +191,4 @@ var collection = client.CreateCollection("my-collection", embeddingFunction);
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+This project is licensed under the Apache License 2.0.
