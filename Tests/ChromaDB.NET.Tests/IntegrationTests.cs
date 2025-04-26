@@ -136,16 +136,14 @@ namespace ChromaDB.NET.Tests
         [TestMethod]
         public void Persistence_Success()
         {
-            string collectionName = "persistent-collection";
+            string collectionName = "persistent-collection" + Guid.NewGuid().ToString();
             string docId = "persistent-doc";
             string docText = "This document should persist across client instances";
-            var testDir = Path.Combine(_testDir, "persistence-test");
-            Directory.CreateDirectory(testDir);
 
             // Create first client and add document
             {
-                using var client = new ChromaClient(persistDirectory: testDir);
-                using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
+                using var client = new ChromaClient(persistDirectory: _testDir);
+                using var collection = client.CreateCollection(collectionName, _embeddingFunction);
 
                 collection.Add(docId, docText,
                     new Dictionary<string, object> { ["test"] = "persistence" });
@@ -158,7 +156,7 @@ namespace ChromaDB.NET.Tests
 
             // Create a new client instance and verify the document still exists
             {
-                using var client = new ChromaClient(persistDirectory: testDir);
+                using var client = new ChromaClient(persistDirectory: _testDir);
                 using var collection = client.GetCollection(collectionName, _embeddingFunction);
 
                 // Verify the document still exists
