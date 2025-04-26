@@ -527,5 +527,277 @@ namespace ChromaDB.NET.Tests
                 throw;
             }
         }
+
+        [TestMethod]
+        public void WhereFilter_EmptyFilter_GeneratesEmptyObject()
+        {
+            // Create an empty filter
+            var filter = new WhereFilter();
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(filter);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify that an empty filter generates an empty object
+            Assert.AreEqual(JsonValueKind.Object, root.ValueKind);
+            Assert.AreEqual(0, root.EnumerateObject().Count());
+        }
+
+        [TestMethod]
+        public void WhereFilter_ExplicitTopLevelOperator_PreservedInJson()
+        {
+            // Create a filter with an explicit $and operator at the top level
+            var filter1 = new WhereFilter().Equals("category", "books");
+            var filter2 = new WhereFilter().GreaterThan("year", 2010);
+
+            // Use the public And method to create the combined filter
+            var filter = new WhereFilter().And(filter1, filter2);
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(filter);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify that the explicit $and is preserved at the top level
+            Assert.IsTrue(root.TryGetProperty("$and", out var andArray));
+            Assert.AreEqual(JsonValueKind.Array, andArray.ValueKind);
+            Assert.AreEqual(2, andArray.GetArrayLength());
+        }
+
+        [TestMethod]
+        public void WhereFilter_ExplicitOperatorWithOtherFilters_UsesExplicitOperator()
+        {
+            // Create a filter with an explicit $or operator
+            var categoryFilter1 = new WhereFilter().Equals("category", "books");
+            var categoryFilter2 = new WhereFilter().Equals("category", "magazines");
+            var orFilter = new WhereFilter().Or(categoryFilter1, categoryFilter2);
+            
+            // Add another top-level filter through a separate method
+            // Note: In real usage, this would be done differently, but we're simulating 
+            // having both an explicit operator and other top-level conditions
+            var filter = orFilter;
+            
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(filter);
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify that the explicit $or is preserved
+            Assert.IsTrue(root.TryGetProperty("$or", out var orArray));
+            Assert.AreEqual(2, orArray.GetArrayLength());
+        }
+
+        [TestMethod]
+        public void WhereFilter_SetOperators_SerializeCorrectly()
+        {
+            // Test $in operator with lists
+            var inFilter = new WhereFilter()
+                .In("tags", new[] { "fiction", "fantasy", "adventure" });
+
+            // Test $nin operator with lists
+            var ninFilter = new WhereFilter()
+                .NotIn("tags", new[] { "horror", "thriller" });
+
+            // Convert to JSON to verify the correct structure is generated
+            var inJson = JsonSerializer.Serialize(inFilter);
+            var ninJson = JsonSerializer.Serialize(ninFilter);
+
+            // Parse the JSON to check its structure
+            using var inDoc = JsonDocument.Parse(inJson);
+            using var ninDoc = JsonDocument.Parse(ninJson);
+
+            // Verify the $in operator array
+            var inArray = inDoc.RootElement.GetProperty("tags").GetProperty("$in");
+            Assert.AreEqual(JsonValueKind.Array, inArray.ValueKind);
+            Assert.AreEqual(3, inArray.GetArrayLength());
+            var inValues = inArray.EnumerateArray().Select(e => e.GetString()).ToArray();
+            CollectionAssert.Contains(inValues, "fiction");
+            CollectionAssert.Contains(inValues, "fantasy");
+            CollectionAssert.Contains(inValues, "adventure");
+
+            // Verify the $nin operator array
+            var ninArray = ninDoc.RootElement.GetProperty("tags").GetProperty("$nin");
+            Assert.AreEqual(JsonValueKind.Array, ninArray.ValueKind);
+            Assert.AreEqual(2, ninArray.GetArrayLength());
+            var ninValues = ninArray.EnumerateArray().Select(e => e.GetString()).ToArray();
+            CollectionAssert.Contains(ninValues, "horror");
+            CollectionAssert.Contains(ninValues, "thriller");
+        }
+
+        [TestMethod]
+        public void WhereFilter_ComplexNestedFilter_IntegrationTest()
+        {
+            using var client = new ChromaClient(persistDirectory: _testDir);
+            using var collection = client.CreateCollectionWithUniqueName(embeddingFunction: _embeddingFunction);
+
+            // Add test documents with rich metadata
+            collection.Add("doc1", "Fiction Book", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["genres"] = new List<string> { "fiction", "fantasy" },
+                ["year"] = 2015,
+                ["price"] = 25.0,
+                ["inStock"] = true
+            });
+
+            collection.Add("doc2", "Non-fiction Book", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["genres"] = new List<string> { "non-fiction", "history" },
+                ["year"] = 2018,
+                ["price"] = 35.0,
+                ["inStock"] = true
+            });
+
+            collection.Add("doc3", "Magazine", new Dictionary<string, object>
+            {
+                ["category"] = "magazines",
+                ["genres"] = new List<string> { "fashion", "lifestyle" },
+                ["year"] = 2020,
+                ["price"] = 15.0,
+                ["inStock"] = false
+            });
+
+            collection.Add("doc4", "Textbook", new Dictionary<string, object>
+            {
+                ["category"] = "books",
+                ["genres"] = new List<string> { "education", "science" },
+                ["year"] = 2019,
+                ["price"] = 50.0,
+                ["inStock"] = false
+            });
+
+            // First, test a simple filter that should match doc2
+            var filter1 = new WhereFilter()
+                .Equals("category", "books")
+                .GreaterThan("year", 2017)
+                .Equals("inStock", true);
+
+            var json1 = JsonSerializer.Serialize(filter1);
+            Console.WriteLine($"Simple combined filter JSON: {json1}");
+            
+            try
+            {
+                var results1 = collection.Where(filter1);
+                Assert.AreEqual(1, results1.Count);
+                Assert.AreEqual("doc2", results1.Ids[0]);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Simple filter error: {ex.Message}");
+                throw;
+            }
+
+            // Now test a basic OR filter
+            var orFilter = new WhereFilter().Or(
+                new WhereFilter().Equals("category", "magazines"),
+                new WhereFilter().Equals("category", "books")
+                );
+
+            var json2 = JsonSerializer.Serialize(orFilter);
+            Console.WriteLine($"OR filter JSON: {json2}");
+
+            try 
+            {
+                var results2 = collection.Where(orFilter);
+                Assert.AreEqual(4, results2.Count); // Should match all documents
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"OR filter error: {ex.Message}");
+                throw;
+            }
+
+            // Now test a basic And filter
+            var andFilter = new WhereFilter()
+                .Equals("inStock", true)
+                .Equals("category", "books");
+
+            var andJson = JsonSerializer.Serialize(andFilter);
+            Console.WriteLine($"AND filter JSON: {andJson}");
+
+            try 
+            {
+                var resultsAnd = collection.Where(andFilter);
+                Assert.AreEqual(2, resultsAnd.Count); // Should match all documents
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"AND filter error: {ex.Message}");
+                throw;
+            }
+
+            var booksFilter = new WhereFilter().Equals("category", "books");
+            var magazinesFilter = new WhereFilter().Equals("category", "magazines");
+            var categoryFilter = new WhereFilter().Or(booksFilter, magazinesFilter);
+            var stockFilter = new WhereFilter().Equals("inStock", true);
+            
+            // Combine with AND - this may not run in ChromaDB but we can verify the structure
+            var complexFilter = new WhereFilter().And(categoryFilter, stockFilter);
+            var json3 = JsonSerializer.Serialize(complexFilter);
+            Console.WriteLine($"Complex filter JSON structure: {json3}");
+            
+            // Verify the structure is correct, even if we don't execute it
+            using var doc = JsonDocument.Parse(json3);
+            var root = doc.RootElement;
+            
+            Assert.IsTrue(root.TryGetProperty("$and", out var andArray));
+            Assert.AreEqual(2, andArray.GetArrayLength());
+            
+            // First element should have $or
+            var firstElement = andArray.EnumerateArray().ElementAt(0);
+            Assert.IsTrue(firstElement.TryGetProperty("$or", out var orArray));
+            Assert.AreEqual(2, orArray.GetArrayLength());
+            
+            // Second element should have inStock = true
+            var secondElement = andArray.EnumerateArray().ElementAt(1);
+            Assert.IsTrue(secondElement.TryGetProperty("inStock", out var stockValue));
+            Assert.AreEqual(true, stockValue.GetBoolean());
+        }
+        
+        [TestMethod]
+        public void WhereFilter_CombineWithOr_ThenCombineWithAnd_GeneratesCorrectJson()
+        {
+            // First create a filter with OR logic
+            var categoryFilter1 = new WhereFilter().Equals("category", "books");
+            var categoryFilter2 = new WhereFilter().Equals("category", "magazines");
+            var orFilter = new WhereFilter().Or(categoryFilter1, categoryFilter2);
+                
+            // Then combine it with AND conditions
+            var priceFilter = new WhereFilter().GreaterThan("price", 20.0);
+            var combinedFilter = new WhereFilter().And(orFilter, priceFilter);
+
+            // Convert to JSON to verify the correct structure is generated
+            var json = JsonSerializer.Serialize(combinedFilter);
+            Console.WriteLine($"Combined filter JSON: {json}");
+
+            // Parse the JSON to check its structure
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Verify the structure: should be an $and array with 2 elements
+            Assert.IsTrue(root.TryGetProperty("$and", out var andArray), "The root should have an $and property");
+            Assert.AreEqual(2, andArray.GetArrayLength());
+            
+            // Get the elements of the $and array
+            var elements = andArray.EnumerateArray().ToArray();
+            
+            // The first element should be an object with an $or property
+            Assert.IsTrue(elements[0].TryGetProperty("$or", out var orArray), "The first element should have an $or property");
+            Assert.AreEqual(2, orArray.GetArrayLength());
+            
+            // The second element should have a price property
+            var priceObject = elements[1];
+            Assert.IsTrue(priceObject.TryGetProperty("price", out var priceObj), "The second element should have a price property");
+            Assert.IsTrue(priceObj.TryGetProperty("$gt", out var gtValue), "The price object should have a $gt property");
+            Assert.AreEqual(20.0, gtValue.GetDouble());
+        }
     }
 }

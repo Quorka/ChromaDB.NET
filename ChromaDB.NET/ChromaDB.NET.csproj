@@ -16,6 +16,8 @@
     <Version>0.1.0</Version>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- Make internals visible to test project -->
+    <InternalsVisibleTo>ChromaDB.NET.Tests</InternalsVisibleTo>
   </PropertyGroup>
   <PropertyGroup>
     <_NativeTargetDir>../target</_NativeTargetDir>

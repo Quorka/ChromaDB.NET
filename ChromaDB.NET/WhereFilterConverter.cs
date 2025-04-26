@@ -39,22 +39,7 @@ namespace ChromaDB.NET
             }
 
             // Handle explicitly provided $and or $or keys first
-            if (filterDict.ContainsKey("$and") || filterDict.ContainsKey("$or"))
-            {
-                if (filterDict.Count > 1)
-                {
-                    // If $and/$or is explicitly set with other top-level filters,
-                    // serialize just the explicit logical operator for simplicity
-                    var logicalKey = filterDict.ContainsKey("$and") ? "$and" : "$or";
-                    writer.WriteStartObject();
-                    writer.WritePropertyName(logicalKey);
-                    JsonSerializer.Serialize(writer, filterDict[logicalKey], options);
-                    writer.WriteEndObject();
-                    return;
-                }
-                // If only $and or $or exists, fall through to standard dictionary serialization
-            }
-            else if (filterDict.Count > 1)
+            if (filterDict.Count > 1)
             {
                 // Multiple filter conditions need to be wrapped with $and or $or
                 string logicalOperator = combineWithOr ? "$or" : "$and";
