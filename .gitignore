@@ -25,3 +25,4 @@ Cargo.lock
 
 # Rust exclusions
 target/
+Examples/BasicExample/BasicExample.csproj

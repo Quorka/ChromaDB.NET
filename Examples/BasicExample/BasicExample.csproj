@@ -5,10 +5,37 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Don't use RuntimeIdentifier as it can cause issues with native library discovery -->
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\ChromaDB.NET\ChromaDB.NET.csproj" />
+  </ItemGroup>
+
+  <!-- Copy native libraries to output directory with correct structure -->
+  <ItemGroup>
+    
+    <!-- Copy the Linux library to the root output folder as a fallback -->
+    <None Include="..\..\runtimes\linux-x64\native\libchroma_csharp.so" Condition="Exists('..\..\runtimes\linux-x64\native\libchroma_csharp.so')">
+      <Link>libchroma_csharp.so</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    
+    <!-- Copy the Windows library to the root output folder as a fallback -->
+    <None Include="..\..\runtimes\win-x64\native\chroma_csharp.dll" Condition="Exists('..\..\runtimes\win-x64\native\chroma_csharp.dll')">
+      <Link>chroma_csharp.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    
+    <!-- Copy the macOS libraries to the root output folder as a fallback -->
+    <None Include="..\..\runtimes\osx-x64\native\libchroma_csharp.dylib" Condition="Exists('..\..\runtimes\osx-x64\native\libchroma_csharp.dylib')">
+      <Link>libchroma_csharp.dylib</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\runtimes\osx-arm64\native\libchroma_csharp.dylib" Condition="Exists('..\..\runtimes\osx-arm64\native\libchroma_csharp.dylib')">
+      <Link>libchroma_csharp.dylib</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
