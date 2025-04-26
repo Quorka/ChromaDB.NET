@@ -8,12 +8,16 @@ on:
     branches: [ main ]
   workflow_dispatch: # Allow manual triggering
 
+permissions:
+  contents: read  
+  packages: write 
+
 jobs:
   build_native:
     name: Build Native ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false # Keep running other jobs even if one fails
+      fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest

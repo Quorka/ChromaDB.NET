@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -9,7 +10,7 @@ namespace ChromaDB.NET;
 /// <summary>
 /// Result of a query operation
 /// </summary>
-public class QueryResult
+public class QueryResult : IEnumerable<ChromaDocument>
 {
     /// <summary>
     /// Document IDs
@@ -74,6 +75,32 @@ public class QueryResult
             Text = Documents.Count > 0 ? Documents[0] : null,
             Metadata = Metadatas.Count > 0 ? Metadatas[0] : null
         };
+    }
+
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection of ChromaDocuments
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the collection</returns>
+    public IEnumerator<ChromaDocument> GetEnumerator()
+    {
+        for (int i = 0; i < Ids.Count; i++)
+        {
+            yield return new ChromaDocument
+            {
+                Id = Ids[i],
+                Text = i < Documents.Count ? Documents[i] : null,
+                Metadata = i < Metadatas.Count ? Metadatas[i] : null
+            };
+        }
+    }
+
+    /// <summary>
+    /// Returns an enumerator that iterates through the collection of ChromaDocuments
+    /// </summary>
+    /// <returns>An enumerator that can be used to iterate through the collection</returns>
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
     }
 }
 
