@@ -244,9 +244,6 @@ pub extern "C" fn chroma_create_client(
         default_knn_index: knn_index,
     };
 
-    // Log the frontend config    
-    println!("Frontend config: {:?}", frontend_config);
-
     // Create frontend
     let frontend = match runtime
         .block_on(async { Frontend::try_from_config(&(frontend_config, system), &registry).await })
