@@ -182,7 +182,8 @@ pub extern "C" fn chroma_create_collection(
             match InternalCollectionConfiguration::try_from_config(
                 c,
                 client.frontend.get_default_knn_index(),
-            ) {
+                None,
+                ) {
                 Ok(config) => Some(config),
                 Err(e) => {
                     set_error(
