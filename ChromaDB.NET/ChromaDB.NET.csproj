@@ -13,7 +13,7 @@
     <Authors>David Baker</Authors>
     <PackageTags>chroma;vector;database;embeddings;bindings;native</PackageTags>
     <RepositoryUrl>https://github.com/Quorka/ChromaDB.NET</RepositoryUrl>
-    <Version>0.1.0</Version>
+    <Version>0.2.2</Version>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <!-- Make internals visible to test project -->
@@ -43,6 +43,6 @@
     <BuildOutputInPackage Include="$(OutputPath)$(AssemblyName).xml" PackagePath="lib/$(TargetFramework)/" Condition="Exists('$(OutputPath)$(AssemblyName).xml')" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Text.Json" Version="8.0.6" />
   </ItemGroup>
 </Project>
