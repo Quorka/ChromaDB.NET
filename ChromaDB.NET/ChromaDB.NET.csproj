@@ -13,7 +13,7 @@
     <Authors>David Baker</Authors>
     <PackageTags>chroma;vector;database;embeddings;bindings;native</PackageTags>
     <RepositoryUrl>https://github.com/Quorka/ChromaDB.NET</RepositoryUrl>
-    <Version>0.2.2</Version>
+    <Version>0.3.0</Version>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <!-- Make internals visible to test project -->

@@ -1,6 +1,6 @@
 [package]
 name = "chromadb-dotnet-bindings"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Native Bindings for ChromaDB.NET"
 license = "Apache-2.0"
