@@ -14,11 +14,10 @@ use chroma_sqlite::config::{MigrationHash, MigrationMode, SqliteDBConfig};
 use chroma_sysdb::{SqliteSysDbConfig, SysDbConfig};
 use chroma_system::System;
 use chroma_types::{
-    CreateDatabaseRequest, DeleteDatabaseRequest, GetDatabaseRequest, KnnIndex,
+    CreateDatabaseRequest, DatabaseName, DeleteDatabaseRequest, GetDatabaseRequest, KnnIndex,
 };
 use libc::{c_char, c_int, size_t};
 use std::time::SystemTime;
-use std::path::Path;
 use tokio::runtime::Runtime;
 
 use crate::error::{set_error, set_success, ChromaErrorCode, ChromaError};
@@ -62,7 +61,7 @@ pub extern "C" fn chroma_create_client(
         unsafe {
             let sqlite_config = &*sqlite_config_ptr;
 
-            let url = match c_str_to_string(sqlite_config.url) {
+            let _url = match c_str_to_string(sqlite_config.url) {
                 Ok(s) => s,
                 Err(e) => {
                     set_error(
@@ -214,12 +213,18 @@ pub extern "C" fn chroma_create_client(
         segment_manager: Some(segment_manager_config),
         sqlitedb: Some(sqlite_db_config),
         sysdb: sysdb_config,
+        mcmr_sysdb: None,
         collections_with_segments_provider: collection_cache_config,
         log: log_config,
         executor: executor_config,
         default_knn_index: knn_index,
-            tenants_to_migrate_immediately: vec![],
-            tenants_to_migrate_immediately_threshold: None,
+        tenants_to_migrate_immediately: vec![],
+        tenants_to_migrate_immediately_threshold: None,
+        enable_schema: false,
+        min_records_for_invocation: 0,
+        tenants_with_quantization_enabled: vec![],
+        tenants_with_maxscore_enabled: vec![],
+        enable_log_scouting: false,
     };
 
     // Create frontend
@@ -397,10 +402,24 @@ pub extern "C" fn chroma_create_database(
     };
 
     // Get client reference
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
+
+    let db_name = match DatabaseName::new(name) {
+        Some(n) => n,
+        None => {
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Invalid database name (must be at least 3 characters)",
+                func_name,
+                None,
+            );
+            return ChromaErrorCode::ValidationError as c_int;
+        }
+    };
 
     // Create database request
-    let request = match CreateDatabaseRequest::try_new(tenant, name) {
+    let request = match CreateDatabaseRequest::try_new(tenant, db_name) {
         Ok(req) => req,
         Err(e) => {
             set_error(
@@ -505,9 +524,23 @@ pub extern "C" fn chroma_get_database(
         DEFAULT_TENANT.to_string()
     };
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
 
-    let request = match GetDatabaseRequest::try_new(tenant, name) {
+    let db_name = match DatabaseName::new(name) {
+        Some(n) => n,
+        None => {
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Invalid database name (must be at least 3 characters)",
+                func_name,
+                None,
+            );
+            return ChromaErrorCode::ValidationError as c_int;
+        }
+    };
+
+    let request = match GetDatabaseRequest::try_new(tenant, db_name) {
         Ok(req) => req,
         Err(e) => {
             set_error(
@@ -610,7 +643,7 @@ pub extern "C" fn chroma_delete_database(
         DEFAULT_TENANT.to_string()
     };
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
 
     let request = match DeleteDatabaseRequest::try_new(tenant, name) {
         Ok(req) => req,

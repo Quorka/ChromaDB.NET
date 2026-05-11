@@ -2,6 +2,7 @@
 use chroma_types::{
     AddCollectionRecordsRequest, CollectionUuid, CountRequest, DeleteCollectionRecordsRequest,
     GetRequest, IncludeList, Metadata, QueryRequest, RawWhereFields,
+    plan::ReadLevel,
     UpdateCollectionRecordsRequest, UpdateMetadata, UpsertCollectionRecordsRequest,
 };
 use libc::{c_char, c_float, c_int, c_uint, size_t};
@@ -54,7 +55,7 @@ pub extern "C" fn chroma_add(
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
     let collection = unsafe { &*collection_handle };
 
     // Convert C string array to Rust vector
@@ -74,7 +75,7 @@ pub extern "C" fn chroma_add(
         }
     };
 
-    // Convert C embedding array to Rust vector
+    // Convert C embedding array to Rust vector (required for add)
     let embeddings_vec = if !embeddings.is_null() {
         let mut result = Vec::with_capacity(ids_count);
         unsafe {
@@ -94,7 +95,7 @@ pub extern "C" fn chroma_add(
                 }
             }
         }
-        Some(result)
+        result
     } else {
         set_error(
             error_out,
@@ -281,7 +282,7 @@ pub extern "C" fn chroma_count(
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
     let collection = unsafe { &*collection_handle };
 
     // Parse collection ID
@@ -304,6 +305,7 @@ pub extern "C" fn chroma_count(
         collection.tenant.clone(),
         collection.database.clone(),
         collection_id,
+        ReadLevel::default(),
     ) {
         Ok(req) => req,
         Err(e) => {
@@ -380,7 +382,7 @@ pub extern "C" fn chroma_update(
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
     let collection = unsafe { &*collection_handle };
 
     // Convert C string array to Rust vector
@@ -601,7 +603,7 @@ pub extern "C" fn chroma_upsert(
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
     let collection = unsafe { &*collection_handle };
 
     // Convert C string array to Rust vector
@@ -621,7 +623,7 @@ pub extern "C" fn chroma_upsert(
         }
     };
 
-    // Convert C embedding array to Rust vector
+    // Convert C embedding array to Rust vector (required for upsert)
     let embeddings_vec = if !embeddings.is_null() {
         let mut result = Vec::with_capacity(ids_count);
         unsafe {
@@ -641,9 +643,16 @@ pub extern "C" fn chroma_upsert(
                 }
             }
         }
-        Some(result)
+        result
     } else {
-        None
+        set_error(
+            error_out,
+            ChromaErrorCode::InvalidArgument,
+            "Embeddings pointer is null",
+            func_name,
+            None,
+        );
+        return ChromaErrorCode::InvalidArgument as c_int;
     };
 
     // Convert metadata JSON strings to Rust vector
@@ -834,7 +843,7 @@ pub extern "C" fn chroma_delete(
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
     let collection = unsafe { &*collection_handle };
 
     // Convert C string array to Rust vector
@@ -954,6 +963,7 @@ pub extern "C" fn chroma_delete(
         collection_id,
         ids_vec,
         where_filter,
+        None, // limit
     ) {
         Ok(req) => req,
         Err(e) => {
@@ -972,7 +982,7 @@ pub extern "C" fn chroma_delete(
     let mut frontend = client.frontend.clone();
     match client
         .runtime
-        .block_on(async { frontend.delete(request).await })
+        .block_on(async { frontend.delete(request, String::new()).await })
     {
         Ok(_) => {
             set_success(error_out);
@@ -1029,7 +1039,7 @@ pub extern "C" fn chroma_get(
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
     let collection = unsafe { &*collection_handle };
 
     // Convert C string array to Rust vector
@@ -1316,7 +1326,7 @@ pub extern "C" fn chroma_query(
         return ChromaErrorCode::InvalidArgument as c_int;
     }
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
     let collection = unsafe { &*collection_handle };
 
     // Parse collection ID

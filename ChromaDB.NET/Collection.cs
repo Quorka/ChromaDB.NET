@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
 
 namespace ChromaDB.NET
 {
@@ -13,14 +14,12 @@ namespace ChromaDB.NET
     public class Collection : IDisposable
     {
         private IntPtr _handle;
-        private bool _disposed = false;
         private readonly ChromaClient _client;
         private readonly IEmbeddingFunction _embeddingFunction;
 
         private static readonly JsonSerializerOptions WhereFilterSerializerOptions = new JsonSerializerOptions
         {
             Converters = { new WhereFilterConverter() }
-            // Add other options like PropertyNamingPolicy if needed
         };
 
         internal Collection(ChromaClient client, IntPtr handle, IEmbeddingFunction embeddingFunction)
@@ -30,15 +29,25 @@ namespace ChromaDB.NET
             _embeddingFunction = embeddingFunction;
         }
 
+        private (IntPtr clientHandle, IntPtr collectionHandle) GetHandlesOrThrow()
+        {
+            var clientHandle = _client.GetHandleOrThrow();
+            var collectionHandle = Volatile.Read(ref _handle);
+            if (collectionHandle == IntPtr.Zero)
+                throw new ObjectDisposedException(nameof(Collection));
+            return (clientHandle, collectionHandle);
+        }
+
         /// <summary>
         /// Gets the number of documents in the collection
         /// </summary>
         /// <returns>The document count</returns>
         public uint Count()
         {
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
             var result = NativeMethods.chroma_count(
-                _client.Handle,
-                _handle,
+                clientHandle,
+                collectionHandle,
                 out uint count,
                 out var errorPtr);
 
@@ -56,7 +65,8 @@ namespace ChromaDB.NET
             if (docs.Count == 0)
                 return;
 
-            // Generate embeddings if needed
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
+
             if (_embeddingFunction != null)
             {
                 var textsToEmbed = docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text))
@@ -96,8 +106,8 @@ namespace ChromaDB.NET
             try
             {
                 var result = NativeMethods.chroma_add(
-                    _client.Handle,
-                    _handle,
+                    clientHandle,
+                    collectionHandle,
                     idsPtr,
                     (UIntPtr)ids.Length,
                     embeddingsPtr,
@@ -137,6 +147,7 @@ namespace ChromaDB.NET
             bool includeDocuments = true,
             bool includeDistances = true)
         {
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
             var whereFilterJson = whereFilter != null ? JsonSerializer.Serialize(whereFilter, WhereFilterSerializerOptions) : null;
 
             var embeddingPtr = Marshal.AllocHGlobal(queryEmbedding.Length * sizeof(float));
@@ -145,8 +156,8 @@ namespace ChromaDB.NET
             try
             {
                 var result = NativeMethods.chroma_query(
-                    _client.Handle,
-                    _handle,
+                    clientHandle,
+                    collectionHandle,
                     embeddingPtr,
                     (UIntPtr)queryEmbedding.Length,
                     (uint)nResults,
@@ -221,7 +232,8 @@ namespace ChromaDB.NET
             if (docs.Count == 0)
                 return;
 
-            // Generate embeddings if needed
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
+
             if (_embeddingFunction != null)
             {
                 var textsToEmbed = docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text))
@@ -266,8 +278,8 @@ namespace ChromaDB.NET
             try
             {
                 var result = NativeMethods.chroma_update(
-                    _client.Handle,
-                    _handle,
+                    clientHandle,
+                    collectionHandle,
                     idsPtr,
                     (UIntPtr)ids.Length,
                     embeddingsPtr,
@@ -298,7 +310,8 @@ namespace ChromaDB.NET
             if (docs.Count == 0)
                 return;
 
-            // Generate embeddings if needed
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
+
             if (_embeddingFunction != null)
             {
                 var textsToEmbed = docs.Where(d => d.Embedding == null && !string.IsNullOrEmpty(d.Text))
@@ -338,8 +351,8 @@ namespace ChromaDB.NET
             try
             {
                 var result = NativeMethods.chroma_upsert(
-                    _client.Handle,
-                    _handle,
+                    clientHandle,
+                    collectionHandle,
                     idsPtr,
                     (UIntPtr)ids.Length,
                     embeddingsPtr,
@@ -370,11 +383,10 @@ namespace ChromaDB.NET
             Dictionary<string, object>? whereFilter = null,
             string? whereDocument = null)
         {
-            // At least one of the parameters must be provided
             if (ids == null && whereFilter == null && whereDocument == null)
                 throw new ArgumentException("You must provide at least one of: ids, whereFilter, or whereDocument");
 
-            // Marshal IDs
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
             IntPtr idsPtr = IntPtr.Zero;
             UIntPtr idsCount = UIntPtr.Zero;
 
@@ -394,8 +406,8 @@ namespace ChromaDB.NET
             try
             {
                 var result = NativeMethods.chroma_delete(
-                    _client.Handle,
-                    _handle,
+                    clientHandle,
+                    collectionHandle,
                     idsPtr,
                     idsCount,
                     whereFilterJson,
@@ -435,7 +447,8 @@ namespace ChromaDB.NET
             bool includeMetadatas = true,
             bool includeDocuments = true)
         {
-            // Marshal IDs
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
+
             IntPtr idsPtr = IntPtr.Zero;
             UIntPtr idsCount = UIntPtr.Zero;
 
@@ -455,8 +468,8 @@ namespace ChromaDB.NET
             try
             {
                 var result = NativeMethods.chroma_get(
-                    _client.Handle,
-                    _handle,
+                    clientHandle,
+                    collectionHandle,
                     idsPtr,
                     idsCount,
                     whereFilterJson,
@@ -515,14 +528,14 @@ namespace ChromaDB.NET
         /// <returns>Query results</returns>
         public QueryResult Where(WhereFilter filter, uint limit = 0, uint offset = 0, bool includeEmbeddings = false)
         {
-            // Instead of directly using ToDictionary, serialize the filter using the custom converter
+            var (clientHandle, collectionHandle) = GetHandlesOrThrow();
             string whereFilterJson = JsonSerializer.Serialize(filter, WhereFilterSerializerOptions);
 
             try
             {
                 var result = NativeMethods.chroma_get(
-                    _client.Handle,
-                    _handle,
+                    clientHandle,
+                    collectionHandle,
                     IntPtr.Zero, // No specific IDs
                     UIntPtr.Zero,
                     whereFilterJson,
@@ -681,29 +694,23 @@ namespace ChromaDB.NET
         /// </summary>
         protected virtual void Dispose(bool disposing)
         {
-            if (!_disposed)
+            var handle = Interlocked.Exchange(ref _handle, IntPtr.Zero);
+            if (handle == IntPtr.Zero)
+                return;
+
+            var result = NativeMethods.chroma_destroy_collection(handle, out var errorPtr);
+
+            if (result != 0 && errorPtr != IntPtr.Zero)
             {
-                if (_handle != IntPtr.Zero)
+                try
                 {
-                    var result = NativeMethods.chroma_destroy_collection(_handle, out var errorPtr);
-
-                    // We don't throw exceptions in Dispose, but we should at least log any errors
-                    if (result != 0 && errorPtr != IntPtr.Zero)
-                    {
-                        try
-                        {
-                            var errorInfo = ChromaClient.MarshalError(errorPtr);
-                            Console.Error.WriteLine($"Error disposing ChromaCollection: {errorInfo}");
-                        }
-                        finally
-                        {
-                            NativeMethods.chroma_free_error(errorPtr);
-                        }
-                    }
-
-                    _handle = IntPtr.Zero;
+                    var errorInfo = ChromaClient.MarshalError(errorPtr);
+                    Console.Error.WriteLine($"Error disposing ChromaCollection: {errorInfo}");
                 }
-                _disposed = true;
+                finally
+                {
+                    NativeMethods.chroma_free_error(errorPtr);
+                }
             }
         }
 
