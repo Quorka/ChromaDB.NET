@@ -30,11 +30,6 @@ jobs:
             artifact_suffix: win-x64
             lib_name: chroma_csharp.dll
             dll_search_name: chroma_csharp # For NativeMethods.cs loading
-          - os: macos-13
-            target: x86_64-apple-darwin
-            artifact_suffix: osx-x64
-            lib_name: libchroma_csharp.dylib
-            dll_search_name: chroma_csharp # For NativeMethods.cs loading
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_suffix: osx-arm64
@@ -53,7 +48,7 @@ jobs:
         sudo apt-get install -y protobuf-compiler libsqlite3-dev
 
     - name: Install Dependencies (macOS)
-      if: matrix.os == 'macos-latest' || matrix.os == 'macos-13'
+      if: matrix.os == 'macos-latest'
       run: |
         brew install protobuf sqlite
 
@@ -63,7 +58,7 @@ jobs:
         choco install protoc SQLite --yes
         
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.92.0
       with:
         targets: ${{ matrix.target }}
 

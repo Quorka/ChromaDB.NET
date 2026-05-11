@@ -14,7 +14,7 @@ internal static class NativeMethods
     private const string DllName = "chroma_csharp";
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-    public static extern int chroma_free_error(IntPtr error);
+    public static extern void chroma_free_error(IntPtr error);
 
     [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
     public static extern int chroma_create_client(

@@ -1,6 +1,6 @@
 // Collection management functions for ChromaDB C# bindings
 use chroma_types::{
-    CollectionConfiguration, CreateCollectionRequest, GetCollectionRequest,
+    CollectionConfiguration, CreateCollectionRequest, DatabaseName, GetCollectionRequest,
     InternalCollectionConfiguration, Metadata,
 };
 use libc::{c_char, c_int};
@@ -104,6 +104,20 @@ pub extern "C" fn chroma_create_collection(
         DEFAULT_DATABASE.to_string()
     };
 
+    let database_name = match DatabaseName::new(database.clone()) {
+        Some(n) => n,
+        None => {
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Invalid database name (must be at least 3 characters)",
+                func_name,
+                None,
+            );
+            return ChromaErrorCode::ValidationError as c_int;
+        }
+    };
+
     // Parse configuration JSON if provided
     let configuration_json = if !config_json_ptr.is_null() {
         unsafe {
@@ -174,7 +188,7 @@ pub extern "C" fn chroma_create_collection(
         None
     };
 
-    let client = unsafe { &mut *client_handle };
+    let client = unsafe { &*client_handle };
 
     // Convert configuration to internal format
     let configuration = match configuration_json {
@@ -203,10 +217,11 @@ pub extern "C" fn chroma_create_collection(
     // Create the collection request
     let request = match CreateCollectionRequest::try_new(
         tenant.clone(),
-        database.clone(),
+        database_name,
         name,
         metadata,
         configuration,
+        None, // schema
         get_or_create,
     ) {
         Ok(req) => req,
@@ -346,9 +361,23 @@ pub extern "C" fn chroma_get_collection(
         DEFAULT_DATABASE.to_string()
     };
 
-    let client = unsafe { &mut *client_handle };
+    let database_name = match DatabaseName::new(database.clone()) {
+        Some(n) => n,
+        None => {
+            set_error(
+                error_out,
+                ChromaErrorCode::ValidationError,
+                "Invalid database name (must be at least 3 characters)",
+                func_name,
+                None,
+            );
+            return ChromaErrorCode::ValidationError as c_int;
+        }
+    };
 
-    let request = match GetCollectionRequest::try_new(tenant.clone(), database.clone(), name) {
+    let client = unsafe { &*client_handle };
+
+    let request = match GetCollectionRequest::try_new(tenant.clone(), database_name, name) {
         Ok(req) => req,
         Err(e) => {
             set_error(

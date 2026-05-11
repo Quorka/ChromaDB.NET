@@ -1,6 +1,6 @@
 [package]
 name = "chromadb-dotnet-bindings"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Native Bindings for ChromaDB.NET"
 license = "Apache-2.0"
@@ -11,17 +11,16 @@ name = "chroma_csharp"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-chroma-frontend = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-frontend" }
-chroma-cache = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-cache" }
-chroma-config = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-config" }
-chroma-log = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-log" }
-chroma-segment = { git = "https://github.com/chroma-core/chroma.git",  tag = "1.0.15", package = "chroma-segment" }
-chroma-sqlite = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-sqlite" }
-chroma-sysdb = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-sysdb" }
-chroma-system = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-system" }
-chroma-types = { git = "https://github.com/chroma-core/chroma.git", tag = "1.0.15", package = "chroma-types" }
-chroma-error = { git = "https://github.com/chroma-core/chroma.git",  tag = "1.0.15", package = "chroma-error" }
-syn = "2.0.104"
+chroma-frontend = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-frontend" }
+chroma-cache = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-cache" }
+chroma-config = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-config" }
+chroma-log = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-log" }
+chroma-segment = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-segment" }
+chroma-sqlite = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-sqlite" }
+chroma-sysdb = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-sysdb" }
+chroma-system = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-system" }
+chroma-types = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-types" }
+chroma-error = { git = "https://github.com/chroma-core/chroma.git", tag = "1.5.9", package = "chroma-error" }
 
 # FFI dependencies
 libc = "0.2"
@@ -29,7 +28,7 @@ serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
 tokio = { version = "1.41", features = ["full", "fs", "macros", "rt-multi-thread"] }
 uuid = { version = "1.11.0", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
-chrono = { version = "=0.4.38", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 
 # For error handling
 thiserror = "1.0.69"

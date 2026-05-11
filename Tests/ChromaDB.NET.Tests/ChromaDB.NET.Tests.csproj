@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <!-- Add native library handling properties -->
-    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64</RuntimeIdentifiers>
     <!-- Explicitly set where to look for native libraries -->
     <NativeLibraryDirectories>$(MSBuildThisFileDirectory)..\..\runtimes</NativeLibraryDirectories>
   </PropertyGroup>
