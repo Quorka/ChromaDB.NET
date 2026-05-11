@@ -21,8 +21,6 @@ runtimes/
 *.tmp
 *.log
 
-Cargo.lock
-
 # Rust exclusions
 target/
 Examples/BasicExample/BasicExample.csproj
