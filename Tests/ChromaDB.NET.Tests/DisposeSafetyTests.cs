@@ -174,7 +174,8 @@ namespace ChromaDB.NET.Tests
                 });
             }
 
-            Task.WaitAll(tasks);
+            if (!Task.WaitAll(tasks, TimeSpan.FromSeconds(30)))
+                Assert.Fail("Concurrent operations timed out after 30 seconds");
 
             for (int i = 0; i < errors.Length; i++)
             {

@@ -13,7 +13,6 @@ namespace ChromaDB.NET;
 public class ChromaClient : IDisposable
 {
     private IntPtr _handle;
-    private int _disposed;
 
     internal static ChromaErrorInfo MarshalError(IntPtr errorPtr)
     {
@@ -206,8 +205,6 @@ public class ChromaClient : IDisposable
         var handle = Interlocked.Exchange(ref _handle, IntPtr.Zero);
         if (handle == IntPtr.Zero)
             return;
-
-        Volatile.Write(ref _disposed, 1);
 
         var result = NativeMethods.chroma_destroy_client(handle, out var errorPtr);
 
